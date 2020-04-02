@@ -115,6 +115,8 @@ class Renderer: NSObject {
     var firstStroke: Brush
     var firstTouch: Bool = false
     
+    var framesIdle: UInt = 0
+    
     init(device: MTLDevice) {
         txwidth = 2048
         txheight = 2736 // multiple of 16 px tile size
@@ -288,15 +290,7 @@ class Renderer: NSObject {
     
     func clearCanvas(color: Color) {
         let bytesPerPixel = 4
-        //TODO switch this back to 16bits to remove banding
-        /*
-        var imgData = UnsafeMutablePointer<UInt8>.allocate(capacity: txwidth * txheight * 4)
-        imgData = fillColor(imgData: imgData, width: txwidth, height: txheight, color: color)
-        let region = MTLRegionMake2D(0, 0, txwidth, txheight)
-        imageTexture.replace(region: region, mipmapLevel: 0, withBytes: imgData, bytesPerRow: txwidth*bytesPerPixel)
-        imgData.deallocate()
- */
-        
+
         //draw grids
         let w = 8
         let markerColor = Color(r: 0,g: 0,b: 0)
@@ -380,6 +374,7 @@ class Renderer: NSObject {
 }
 
 extension Renderer: MTKViewDelegate {
+
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         clearTexture(in: view)
     }
@@ -391,8 +386,18 @@ extension Renderer: MTKViewDelegate {
             prevStroke = firstStroke
             beginReplay = false
             clearTexture(in: view)
-            //clearCanvas(color: Color(r: 200, g: 40, b: 40))
+            clearCanvas(color: Color(r: 200, g: 40, b: 40))
         } else {
+            if (!replay && brushBuffer.isEmpty) || (replay && replayBrushBuffer.isEmpty) {
+                    framesIdle += 1
+                    if framesIdle > 60 {
+                        view.isPaused = true
+                        framesIdle = 61
+                        return
+                    }
+                } else {
+                    framesIdle = 0
+                }
             drawCanvasInstanced(in: view)
         }
         drawFrame(in: view)
@@ -473,58 +478,6 @@ extension Renderer: MTKViewDelegate {
         brushBuffer.removeAll()
     }
     
-    func drawCanvas(in view: MTKView) {
-        var c = prevStroke
-        for brush in brushBuffer {
-            var spacing: Float = max(5.0, brush.size / 20.0)
-            let d = v_len(a: (brush.position - c.position))
-            var n: Int = Int(d / spacing)
-            if n > 100 {
-                n = 100
-                spacing = d / Float(n)
-            }
-            let step = v_norm(a: (brush.position - c.position)) * spacing
-            //let n = 4
-            //let step = v_norm(a: (brush.position - c.position)) * (d / Float(n))
-            //let df: Float = (brush.force - c.force) / Float(n + 1)
-            print("d: \(d) n: \(n)")
-            
-            //debug color, r channel
-            c.color = Color(r: 0,g: 0,b: 0)
-            for _ in 0 ..< n {
-                //print("drawCanvas xy: \(c.position.x),\(c.position.y)")
-                drawBrush(in: view, brush: c)
-                
-                c.position = c.position + step
-                //c.force += df
-                c.color.r = UInt8(Int(c.color.r) + 255/n % 256)
-            }
-            drawBrush(in: view, brush: c)
-            //c = brush
-        }
-        prevStroke = c
-        brushBuffer.removeAll()
-    }
-    
-    /*
-     //deprecated, drawing brush on the CPU
-     func drawBrush(brush: Brush) {
-     if Int(brush.position.x + brush.size) > txwidth
-     || Int(brush.position.y + brush.size) > txheight {
-     return
-     }
-     let color = defaultColor
-     let bytesPerPixel = 4
-     let kernelWidth = Int(brush.size)
-     let kernelSize = kernelWidth * kernelWidth * bytesPerPixel
-     var brushData = UnsafeMutablePointer<UInt8>.allocate(capacity: kernelSize)
-     brushData = fillColor(imgData: brushData, width: kernelWidth, height: kernelWidth, color: color)
-     let region = MTLRegionMake2D(Int(brush.position.x), Int(brush.position.y), kernelWidth, kernelWidth)
-     imageTexture.replace(region: region, mipmapLevel: 0, withBytes: brushData, bytesPerRow: kernelWidth*bytesPerPixel)
-     brushData.deallocate()
-     }
-     // */
-    
     func clearTexture(in view: MTKView) {
         
         let renderPassDescriptor = MTLRenderPassDescriptor()
@@ -553,8 +506,8 @@ extension Renderer: MTKViewDelegate {
         }
         
         renderPassDescriptor.colorAttachments[0].texture = drawable.texture
-        renderPassDescriptor.colorAttachments[0].loadAction = .clear
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0)
+        renderPassDescriptor.colorAttachments[0].loadAction = .dontCare
+        //renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0)
         // Create a buffer from the commandQueue
         let commandBuffer = commandQueue.makeCommandBuffer()
         let commandEncoder = commandBuffer?.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
@@ -570,6 +523,7 @@ extension Renderer: MTKViewDelegate {
         commandBuffer?.commit()
     }
     
+    //drawing just 1 thing, consider replace with drawStroke w/ instance of 1
     func drawBrush(in view: MTKView, brush: Brush) {
         let renderPassDescriptor = MTLRenderPassDescriptor()
         renderPassDescriptor.colorAttachments[0].texture = imageTexture
@@ -589,18 +543,14 @@ extension Renderer: MTKViewDelegate {
         uniformBuffer_ptr[5] = b.color.y
         uniformBuffer_ptr[6] = b.color.z
         
-        //print("drawBrush color: \(brush.color.r) \(brush.color.g) \(brush.color.b)")
-        // Create a buffer from the commandQueue
         let commandBuffer = commandQueue.makeCommandBuffer()
         let commandEncoder = commandBuffer?.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
         commandEncoder?.setRenderPipelineState(strokePipelineState)
-        // Pass in the vertexBuffer into index 0
+        
         commandEncoder?.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         commandEncoder?.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
-        // Draw primitive at vertextStart 0
-        //commandEncoder?.setFragmentTexture(imageTexture, index: 0)
+        
         commandEncoder?.setFragmentTexture(brushTexture, index: 0)
-        //commandEncoder?.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
         commandEncoder?.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count, instanceCount: 1)
         commandEncoder?.endEncoding()
         commandBuffer?.commit()
@@ -616,21 +566,28 @@ extension Renderer: MTKViewDelegate {
         let uniformBuffer_ptr = uniformStrokeBuffer.contents()//.assumingMemoryBound(to: Float.self)
         memcpy(uniformBuffer_ptr, strokeBuffer, strokeBuffer.count * MemoryLayout<BrushUniform>.stride)
 
-        //print("drawBrush color: \(brush.color.r) \(brush.color.g) \(brush.color.b)")
-        // Create a buffer from the commandQueue
         let commandBuffer = commandQueue.makeCommandBuffer()
         let commandEncoder = commandBuffer?.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
         commandEncoder?.setRenderPipelineState(strokePipelineState)
-        // Pass in the vertexBuffer into index 0
+        
         commandEncoder?.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         commandEncoder?.setVertexBuffer(uniformStrokeBuffer, offset: 0, index: 1)
-        //commandEncoder?.setVertexBuffer(&modelConstraints, length: MemoryLayout<ModelConstraints>.stride, index: 1)
-        // Draw primitive at vertextStart 0
-        //commandEncoder?.setFragmentTexture(imageTexture, index: 0)
         commandEncoder?.setFragmentTexture(brushTexture, index: 0)
+        
         commandEncoder?.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count, instanceCount: strokeBuffer.count)
-
         commandEncoder?.endEncoding()
         commandBuffer?.commit()
     }
 }
+
+//TODO list
+/*
+ * Draw circles to represent UI elements
+    * record, replay, clear
+ * detect hit targets to trigger UI elements
+ * predict touches and replay actual touches after the fact
+ * read force
+ * pick colors from UI
+ * pause play back when not replay or not drawing
+
+ */
