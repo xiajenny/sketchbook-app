@@ -73,6 +73,13 @@ vertex vxout basic_vertex(const device vxin* vertex_array [[ buffer(0) ]],
     return vo;
 }
 
+fragment half4 clear_fragment(vxout fin [[ stage_in ]])
+{
+    //return half4(half3(fin.color), 1.0);
+    discard_fragment();
+    return half4(0,0,0,0);
+}
+
 fragment half4 basic_fragment(vxout fin [[ stage_in ]],
                               texture2d<half> tx [[ texture(0) ]])
 {
