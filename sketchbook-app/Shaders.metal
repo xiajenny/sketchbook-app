@@ -110,7 +110,7 @@ vertex vxout brush_vertex(const device vxin* vertex_array [[ buffer(0) ]],
 vertex vxout stroke_vertex(const device vxin* vertex_array [[ buffer(0) ]],
                           const device uniform2d *uniforms [[ buffer(1) ]],
                           unsigned int vid [[ vertex_id ]],
-                          unsigned int iid [[ instance_id ]])
+                          uint16_t iid [[ instance_id ]])
 {
     vxin vi = vertex_array[vid];
     
@@ -122,7 +122,7 @@ vertex vxout stroke_vertex(const device vxin* vertex_array [[ buffer(0) ]],
     float2 pos;
     pos.x = vi.pos[0];
     pos.y = vi.pos[1];
-    pos = pos + translate;// * scale; //+ translate;
+    pos = pos * scale + translate;
     float4 p = float4(pos, 0.0, 1.0);
     //vo.pos = m * p;
     vo.pos = p;
