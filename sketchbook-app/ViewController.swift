@@ -36,25 +36,32 @@ class ViewController: UIViewController {
         let t = touch!.preciseLocation(in: view)
         print("\(touchCount) touches started \(t.x) \(t.y)")
         mtkView.isPaused = false;
-        renderer.newTouch(touch: touch!, view: mtkView)
-        renderer.didTouch(touches: touches, view: mtkView)
+        renderer.didTouch(touches: touches, view: mtkView, first: true)
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        renderer.didTouch(touches: touches, view: mtkView)
+        renderer.didTouch(touches: touches, view: mtkView, first: false)
         mtkView.isPaused = false;
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        renderer.didTouch(touches: touches, view: mtkView)
+        renderer.didTouch(touches: touches, view: mtkView, first: false)
         
         let touchCount = touches.count
         let touch = touches.first
         let t = touch!.preciseLocation(in: view)
         print("\(touchCount) touches ended \(t.x) \(t.y)")
-        renderer.touchEnded = true
+        renderer.defaultBrush.touchEnded = true
         //view paused in renderer.drawFrame
         //mtkView.isPaused = true;
     }
-    
+    override func touchesEstimatedPropertiesUpdated(_ touches: Set<UITouch>) {
+        for touch in touches {
+            guard let index = touch.estimationUpdateIndex else {
+                continue
+            }
+            print ("update index: \(index) force: \(touch.force)")
+            renderer.didTouch(touches: touches, view: mtkView, first: false, type: .update)
+        }
+    }
 }
     
 
