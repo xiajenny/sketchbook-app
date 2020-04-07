@@ -35,15 +35,15 @@ fragment float4 basic_fragment_function(VertexOut vIn [[ stage_in ]]) {
 
 struct vxin
 {
-  packed_float3 pos;
-  packed_float2 uv;
+    packed_float3 pos;
+    packed_float2 uv;
 };
 
 struct vxout
 {
-  float4 pos [[position]];
-  float2 uv;
-    float3 color;
+    float4 pos [[position]];
+    float2 uv;
+    float4 color [[flat]];
 };
 
 struct vxout_brush
@@ -54,7 +54,7 @@ struct vxout_brush
 };
 struct Uniforms
 {
-  float4x4 modelMatrix;
+    float4x4 modelMatrix;
 //  float4x4 projectionMatrix;
 };
 
@@ -81,17 +81,19 @@ fragment half4 clear_fragment(vxout fin [[ stage_in ]])
 }
 
 fragment half4 basic_fragment(vxout fin [[ stage_in ]],
-                              texture2d<half> tx [[ texture(0) ]])
+                              texture2d<half> tx [[ texture(0) ]],
+                              texture2d<half> ui [[ texture(1) ]])
 {
     constexpr sampler txsampler;
-    return tx.sample(txsampler, fin.uv);
+    half4 ret = ui.sample(txsampler, fin.uv) + tx.sample(txsampler, fin.uv);
+    return ret;
 }
 
 struct uniform2d
 {
     float2 translate;
     float2 scale;
-    float3 color;
+    float4 color;
 };
 
 vertex vxout brush_vertex(const device vxin* vertex_array [[ buffer(0) ]],
@@ -110,7 +112,6 @@ vertex vxout brush_vertex(const device vxin* vertex_array [[ buffer(0) ]],
     pos.y = vi.pos[1];
     pos = pos * scale + translate;
     float4 p = float4(pos, 0.0, 1.0);
-    //vo.pos = m * p;
     vo.pos = p;
     return vo;
 }
@@ -142,6 +143,7 @@ fragment half4 brush_fragment(vxout fin [[ stage_in ]],
     constexpr sampler txsampler;
     half4 brush = tx.sample(txsampler, fin.uv);
     brush.rgb = half3(fin.color.rgb);
+    brush.a *= fin.color.a;
     return brush;
 }
 

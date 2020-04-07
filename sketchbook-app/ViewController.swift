@@ -6,7 +6,6 @@ import ModelIO
 class ViewController: UIViewController {
     var mtkView: MTKView!
     var renderer: Renderer!
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -25,8 +24,9 @@ class ViewController: UIViewController {
         mtkView.depthStencilPixelFormat = .depth32Float
         
         //from modern-metal renderer = Renderer(view: mtkView, device: device)
-        renderer = Renderer(device: device)
+        renderer = Renderer(device: device, with: mtkView)
         mtkView.delegate = renderer
+        mtkView.isMultipleTouchEnabled = true
     }
     
 
@@ -36,14 +36,15 @@ class ViewController: UIViewController {
         let t = touch!.preciseLocation(in: view)
         print("\(touchCount) touches started \(t.x) \(t.y)")
         mtkView.isPaused = false;
-        renderer.didTouch(touches: touches, view: mtkView, first: true)
+        renderer.didTouch(touches: touches, with: event, first: true)
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        renderer.didTouch(touches: touches, view: mtkView, first: false)
+        renderer.didTouch(touches: touches, with: event, first: false)
         mtkView.isPaused = false;
+        
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        renderer.didTouch(touches: touches, view: mtkView, first: false)
+        renderer.didTouch(touches: touches, with: event, last: true)
         
         let touchCount = touches.count
         let touch = touches.first
@@ -58,10 +59,11 @@ class ViewController: UIViewController {
             guard let index = touch.estimationUpdateIndex else {
                 continue
             }
-            print ("update index: \(index) force: \(touch.force)")
-            renderer.didTouch(touches: touches, view: mtkView, first: false, type: .update)
+            //print ("update index: \(index) force: \(touch.force)")
         }
+        renderer.updateTouch(touches: touches)
     }
+    
 }
     
 
