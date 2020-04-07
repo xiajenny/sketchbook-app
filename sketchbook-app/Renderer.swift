@@ -410,6 +410,9 @@ class Renderer: NSObject {
     var touchCount: Int = 0
     
     func updateTouch(touches: Set<UITouch>) {
+        if buttonPressed {
+            return
+        }
         for touch in touches {
             guard let index = touch.estimationUpdateIndex else {
                 continue
@@ -570,10 +573,13 @@ extension Renderer: MTKViewDelegate {
             
             if buttonPressed {
                 //get dist pencil has moved since button pressed
-                let dist = v_len(a: buttonFirstPencilLoc - buttonCurrentPencilLoc)
+                let buttonLoc = Vec2(x: 0, y: -800)
+                let distFirst = v_len(a: buttonFirstPencilLoc - buttonLoc)
+                let distCurr = v_len(a: buttonLoc - buttonCurrentPencilLoc)
+                let dist = distCurr - distFirst
                 newSize = updatedBrush.size + dist / 2
                 
-                let brushSizeElement = BrushSample(position: Vec2(x: 0, y: -800), size: newSize, color: defaultButtonColor)
+                let brushSizeElement = BrushSample(position: buttonLoc, size: newSize, color: defaultButtonColor)
                 strokeBuffer.append(convert(sample: brushSizeElement))
             }
             drawStroke(texture: uiTexture, in: view, brush: defaultBrush)
