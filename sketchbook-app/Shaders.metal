@@ -44,6 +44,7 @@ struct vxout
     float4 pos [[position]];
     float2 uv;
     float4 color [[flat]];
+    uint32_t txIndex [[flat]];
 };
 
 struct vxout_brush
@@ -85,7 +86,10 @@ fragment half4 basic_fragment(vxout fin [[ stage_in ]],
                               texture2d<half> ui [[ texture(1) ]])
 {
     constexpr sampler txsampler;
-    half4 ret = ui.sample(txsampler, fin.uv) + tx.sample(txsampler, fin.uv);
+    half4 u = ui.sample(txsampler, fin.uv);
+    half4 t = tx.sample(txsampler, fin.uv);
+    half4 ret = u * u.a + t * (1 - u.a);
+    ret.a = 1;
     return ret;
 }
 
@@ -94,8 +98,10 @@ struct uniform2d
     float2 translate;
     float2 scale;
     float4 color;
+    uint32_t txIndex;
 };
 
+//DEPRECATED
 vertex vxout brush_vertex(const device vxin* vertex_array [[ buffer(0) ]],
                           const device uniform2d &uniforms [[ buffer(1) ]],
                           unsigned int vid [[ vertex_id ]])
@@ -103,6 +109,7 @@ vertex vxout brush_vertex(const device vxin* vertex_array [[ buffer(0) ]],
     vxin vi = vertex_array[vid];
     
     vxout vo;
+    vo.txIndex = uniforms.txIndex;
     vo.uv = vi.uv;
     vo.color = uniforms.color;
     float2 translate = uniforms.translate;
@@ -115,18 +122,21 @@ vertex vxout brush_vertex(const device vxin* vertex_array [[ buffer(0) ]],
     vo.pos = p;
     return vo;
 }
+
 vertex vxout stroke_vertex(const device vxin* vertex_array [[ buffer(0) ]],
                           const device uniform2d *uniforms [[ buffer(1) ]],
                           unsigned int vid [[ vertex_id ]],
                           uint16_t iid [[ instance_id ]])
 {
     vxin vi = vertex_array[vid];
+    uniform2d uni = uniforms[iid];
     
     vxout vo;
     vo.uv = vi.uv;
-    vo.color = uniforms[iid].color;
-    float2 translate = uniforms[iid].translate;
-    float2 scale = uniforms[iid].scale;
+    vo.txIndex = uni.txIndex;
+    vo.color = uni.color;
+    float2 translate = uni.translate;
+    float2 scale = uni.scale;
     float2 pos;
     pos.x = vi.pos[0];
     pos.y = vi.pos[1];
@@ -137,13 +147,26 @@ vertex vxout stroke_vertex(const device vxin* vertex_array [[ buffer(0) ]],
     return vo;
 }
 
+typedef struct FragmentShaderArguments {
+    array<texture2d<float>, 2> exampleTextures  [[ id(0)  ]];
+} fsa;
+
 fragment half4 brush_fragment(vxout fin [[ stage_in ]],
-                              texture2d<half> tx [[ texture(0) ]])
+                              //array<texture2d<half>, 2> tx [[ texture(0) ]])
+                              texture2d<half> tx [[ texture(0) ]],
+                              texture2d<half> tx2 [[ texture(1) ]])
 {
     constexpr sampler txsampler;
-    half4 brush = tx.sample(txsampler, fin.uv);
-    brush.rgb = half3(fin.color.rgb);
+    //half4 brush = tx[fin.txIndex].sample(txsampler, fin.uv);
+    half4 brush;
+    if (fin.txIndex == 0) {
+        brush = tx.sample(txsampler, fin.uv);
+        brush.rgb = half3(fin.color.rgb);
+    } else if (fin.txIndex == 1){
+        brush = tx2.sample(txsampler, fin.uv);
+    }
     brush.a *= fin.color.a;
+    //brush.r = half(fin.txIndex);
     return brush;
 }
 

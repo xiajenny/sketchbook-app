@@ -5,6 +5,7 @@
 * get perpendicular force https://developer.apple.com/documentation/uikit/pencil_interactions/handling_input_from_apple_pencil/computing_the_perpendicular_force_of_apple_pencil
 * Also this: https://developer.apple.com/documentation/uikit/touches_presses_and_gestures/leveraging_touch_input_for_drawing_apps
 * pause play back when not replay or not drawing
+* create commandEncoder once at startup
 
 # DOING
 * refactor size UI code

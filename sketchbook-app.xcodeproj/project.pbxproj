@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3B83EB33243D208F00C7358F /* ColorUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B83EB32243D208F00C7358F /* ColorUtility.swift */; };
 		3BBA05AA2431CED800879BF0 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3BBA05A82431CED800879BF0 /* Shaders.metal */; };
 		3BBA05AB2431CED800879BF0 /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBA05A92431CED800879BF0 /* Renderer.swift */; };
 		3BF15C3A2438022C00119075 /* StrokeCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BF15C392438022C00119075 /* StrokeCollection.swift */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3B83EB32243D208F00C7358F /* ColorUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorUtility.swift; sourceTree = "<group>"; };
 		3BBA05A82431CED800879BF0 /* Shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
 		3BBA05A92431CED800879BF0 /* Renderer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Renderer.swift; sourceTree = "<group>"; };
 		3BF15C38243704C200119075 /* TODO.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = "<group>"; };
@@ -74,6 +76,7 @@
 				83EDDBE420FEE4BE006CE50F /* Assets.xcassets */,
 				83697CE420F4E96500B4C2A6 /* Info.plist */,
 				3BF15C38243704C200119075 /* TODO.md */,
+				3B83EB32243D208F00C7358F /* ColorUtility.swift */,
 				3BF15C3D2438028B00119075 /* StrokeGestureRecognizer.swift */,
 				3BF15C392438022C00119075 /* StrokeCollection.swift */,
 				3BF15C3B2438028000119075 /* CGMathExtensions.swift */,
@@ -153,6 +156,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3B83EB33243D208F00C7358F /* ColorUtility.swift in Sources */,
 				83697CDB20F4E96400B4C2A6 /* ViewController.swift in Sources */,
 				3BF15C3A2438022C00119075 /* StrokeCollection.swift in Sources */,
 				83697CD920F4E96400B4C2A6 /* AppDelegate.swift in Sources */,
