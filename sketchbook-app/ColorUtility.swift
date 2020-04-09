@@ -53,7 +53,7 @@ func ftoi(f: FloatRGB) -> Color {
     return out
 }
 
-//taken from https://stackoverflow.com/questions/3018313/algorithm-to-convert-rgb-to-hsv-and-hsv-to-rgb-in-range-0-255-for-both
+//adapted from https://stackoverflow.com/questions/3018313/algorithm-to-convert-rgb-to-hsv-and-hsv-to-rgb-in-range-0-255-for-both
 func hsv2rgb(input: FloatHSV) -> Color {
     var hh, p, q, t, ff: Float
     var i: Int

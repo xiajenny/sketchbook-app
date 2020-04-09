@@ -109,12 +109,16 @@ struct Brush {
 class Renderer: NSObject {
     var view: MTKView!
     var commandQueue: MTLCommandQueue!
+    var commandBuffer: MTLCommandBuffer!
+    
     var renderPipelineState: MTLRenderPipelineState!
     var brushPipelineState: MTLRenderPipelineState!
     var strokePipelineState: MTLRenderPipelineState!
     var clearPipelineState: MTLRenderPipelineState!
     
     var fence: MTLFence!
+    let rdpUI = MTLRenderPassDescriptor()
+    let rdpCanvas = MTLRenderPassDescriptor()
     
     var uniformBuffer: MTLBuffer! = nil;
     var vertexBuffer: MTLBuffer!
@@ -165,19 +169,11 @@ class Renderer: NSObject {
     
     //ui stuff
     var uitIndex = 0
-    let clearColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 0.0)
+    let clearColor = MTLClearColorMake(00/255.0, 0/255.0, 0/255.0, 0.0)
     let defaultColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 1.0)
-    let defaultButtonColor = Color(r: 80,g: 80,b: 180, a: 255)
-    let buttonActivatedColor = Color(r: 40,g: 40,b: 100, a: 255)
-    var buttonColor: Color
-    
-    var mustUpdate = true
-    var colorPickerDim = 256
-    var buttonPressed = false
-    var buttonFirstPencilLoc = Vec2()
-    var buttonCurrentPencilLoc = Vec2()
-    var newSize: Float = 256
-    
+
+    var uim: UIManager
+
     //MARK: - Setup
     init(device: MTLDevice, with v: MTKView) {
         view = v
@@ -195,19 +191,22 @@ class Renderer: NSObject {
         predictedBrush = Brush(n: "predictedBrush", w: txwidth, h: txheight)
         predictedBrush.size = 40
         predictedBrush.color = Color(r: 0, g: 0, b: 255,a:255)
-        buttonColor = defaultButtonColor;
-        
+
+        uim = UIManager()
         super.init()
         createCommandQueue(device: device)
+        //commandBuffer = commandQueue.makeCommandBuffer()
         createPipelineState(device: device)
         createBuffers(device: device)
         createTextures(device: device)
+        createDescriptors(device: device)
         
         fence = device.makeFence()
         
         //clearCanvas(color: Color(r: 200, g: 40, b: 40))
         fillBrush(color: Color(r:40, g: 40, b: 200,a:255))
         replayBrushBuffer.reserveCapacity(maxTouch)
+        
     }
     
     func createCommandQueue(device: MTLDevice) {
@@ -328,13 +327,24 @@ class Renderer: NSObject {
         txdesc.height = Int(defaultBrushSize)
         stampTextures[0] = device.makeTexture(descriptor: txdesc)
         //brushTexture = device.makeTexture(descriptor: txdesc)
-        txdesc.width = colorPickerDim
-        txdesc.height = colorPickerDim
+        txdesc.width = uim.colorPickerDim
+        txdesc.height = uim.colorPickerDim
         //colorPickerTexture = device.makeTexture(descriptor: txdesc)
         stampTextures[1] = device.makeTexture(descriptor: txdesc)
         
         brushTexture = stampTextures[0]
         colorPickerTexture = stampTextures[1]
+    }
+    
+    func createDescriptors(device: MTLDevice) {
+        rdpCanvas.colorAttachments[0].texture = canvasTexture
+        rdpCanvas.colorAttachments[0].loadAction = .load
+        rdpCanvas.colorAttachments[0].storeAction = .store
+        
+        rdpUI.colorAttachments[0].texture = uiTexture
+        rdpUI.colorAttachments[0].loadAction = .clear
+        rdpUI.colorAttachments[0].clearColor = clearColor
+        rdpUI.colorAttachments[0].storeAction = .store
     }
     
     func nextUITexture() -> MTLTexture{
@@ -400,30 +410,7 @@ class Renderer: NSObject {
         markerData.deallocate()
     }
     
-    func fillColorPicker() {
-        if !mustUpdate { return }
-        
-        mustUpdate = false
-        let bytesPerPixel = 4
-        //draw grid of stuff
-        let dim = 256
-        let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: dim * dim * bytesPerPixel)
-        let hue = 260
-        for s in 0 ... 255 {
-            for v in 0 ... 255 {
-                let hsv = itof(i: IntHSV(h: hue, s: s, v: v, a: 255))
-                let color = hsv2rgb(input: hsv)
-                let index = s * dim + v
-                cpData[index * bytesPerPixel + 0] = color.r
-                cpData[index * bytesPerPixel + 1] = color.g
-                cpData[index * bytesPerPixel + 2] = color.b
-                cpData[index * bytesPerPixel + 3] = 255//color.a
-            }
-        }
-        let region = MTLRegionMake2D(0, 0, dim, dim)
-        colorPickerTexture.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: dim*bytesPerPixel)
-    }
-    
+
     //MARK: - touch
     func processTouchPosition(touch: UITouch, view: MTKView) -> Vec2 {
         let t = touch.preciseLocation(in: view)
@@ -448,7 +435,7 @@ class Renderer: NSObject {
     var touchCount: Int = 0
     
     func updateTouch(touches: Set<UITouch>) {
-        if buttonPressed {
+        if uim.buttonPressed {
             return
         }
         for touch in touches {
@@ -484,15 +471,11 @@ class Renderer: NSObject {
             let hit = v_len(a: target - pos) < 140.0
             //print("dist: \(v_len(a: target - pos))")
             if hit && first {
-                buttonColor = buttonActivatedColor
-                buttonPressed = true
-                buttonFirstPencilLoc = Vec2()
-                buttonCurrentPencilLoc = Vec2()
+                uim.pressButton()
             }
             if last {
-                buttonColor = defaultButtonColor
-                buttonPressed = false
-                updatedBrush.size = newSize
+                uim.releaseButton()
+                updatedBrush.size = uim.newBrushSize
             }
         }
         
@@ -502,7 +485,7 @@ class Renderer: NSObject {
             firstTouch = touches.first!
             if firstTouch!.type == .pencil {
                 let pos = processTouchPosition(touch: firstTouch!, view: view)
-                buttonFirstPencilLoc = pos
+                uim.firstPencilLoc = pos
             }
             
             if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
@@ -540,7 +523,7 @@ class Renderer: NSObject {
             //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce)
             firstOnce = false
             if touch.type == .pencil {
-                buttonCurrentPencilLoc = pos
+                uim.currentPencilLoc = pos
             }
             
             if enableReplay == true {
@@ -559,7 +542,6 @@ class Renderer: NSObject {
             }
         }
     }
-    var buttonOffset: Float = 0
 }
 
 extension Renderer: MTKViewDelegate {
@@ -586,6 +568,16 @@ extension Renderer: MTKViewDelegate {
         }
     }
     
+    /* Primary draw function per frame
+     * ignoring replay for now
+     * 1. draw brush strokes onto canvas
+     * 2. draw UI
+     * 3. draw frame by combining brushes and UI
+     * later optimizations:
+     *  - Only draw UI if UI state changes
+     *  - Only draw canvas if canvas needs changing
+     *  - don't redraw at all if nothing changes (render pause)
+     */
     func draw(in view: MTKView) {
         //draw on texture first, then present to screen
         //drawCanvas(in: view)
@@ -609,38 +601,22 @@ extension Renderer: MTKViewDelegate {
             drawCanvasInstanced(in: view)
             
             //drawUI
-            //clear UI texture
-            let clearColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 0.0)
-            clearTexture(texture: uiTexture, color: clearColor, in: view)
-            uiTexture = nextUITexture()
-
             //color picker
-            //*
-            fillColorPicker()
-            let loc = Vec2(x: 800, y: -1800)
-            let brushSizeElement = BrushSample(position: loc, size: 256, color: defaultButtonColor)
-            uniformStagingBuffer.append(convert(sample: brushSizeElement, txIndex: 1))
-            // */
+            var element = uim.createColorPicker(tex: &colorPickerTexture)
+            uniformStagingBuffer.append(convert(sample: element, txIndex: 1))
             
             //button for resizing brush
-            let element = BrushSample(position: Vec2(x: -0.0, y: -2000+buttonOffset), size: 128.0, color: buttonColor)
-            //buttonOffset += 1
+            element = uim.createResizeBrushButton()
             uniformStagingBuffer.append(convert(sample: element))
             
-            if buttonPressed {
-                //get dist pencil has moved since button pressed
-                let buttonLoc = Vec2(x: 0, y: -800)
-                let distFirst = v_len(a: buttonFirstPencilLoc - buttonLoc)
-                let distCurr = v_len(a: buttonLoc - buttonCurrentPencilLoc)
-                let dist = distCurr - distFirst
-                newSize = updatedBrush.size + dist / 2
-
-                let brushSizeElement = BrushSample(position: buttonLoc, size: newSize, color: defaultButtonColor)
-                uniformStagingBuffer.append(convert(sample: brushSizeElement))
+            if uim.buttonPressed {
+                element = uim.createResizeBrush(brushSize: updatedBrush.size)
+                uniformStagingBuffer.append(convert(sample: element))
             }
             
             //draw UI
-            drawStroke(renderTo: uiTexture, stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, in: view, wait: true)
+            //note: UI texture implicitly cleared by rdpUI
+            drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpUI, in: view, wait: true)
             uniformStagingBuffer.removeAll(keepingCapacity: true)
         }
         drawFrame(in: view)
@@ -655,9 +631,19 @@ extension Renderer: MTKViewDelegate {
         return
     // */
         
-        var spacing: Float = 1.0//max(1.0, brush.size / 30.0)
+        /* Goals:
+         * Skip if next and current positions are the same
+         * Draw at least once if current/next are NOT the same
+         * Keep spacing at minimum 1 pixel
+         * Don't draw too much, increase spacing with larger brushes
+         * Keep num draws to 400 or less (stay under upper bound size of uniform buffer)
+         */
+        var spacing: Float = max(1.0, next.size / 30.0)
         let d = v_len(a: (next.position - current.position))
-        var n: Int = Int(d / spacing)
+        if d == 0 {
+            return
+        }
+        var n: Int = max(1, Int(d / spacing))
         if n > 400 {
             n = 400
             spacing = d / Float(n)
@@ -666,6 +652,8 @@ extension Renderer: MTKViewDelegate {
         let df: Float = (next.force - current.force) / Float(n + 1)
         //print("force: \(c.force) df: \(df) ")
         
+        let numpix = pow(current.size, 2) * Float(n)
+        print("n: \(n), pix/frame: \(numpix)")
         for _ in 0 ..< n {
             if uniformStagingBuffer.count == 3000 {
                 break;
@@ -706,7 +694,7 @@ extension Renderer: MTKViewDelegate {
             }
             prepareStrokeSegment(next: sample, current: &c)
             if uniformStagingBuffer.count > 0 {
-                drawStroke(renderTo: canvasTexture, stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, in: view)
+                drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
                 uniformStagingBuffer.removeAll(keepingCapacity: true)
             }
         } else {
@@ -714,7 +702,8 @@ extension Renderer: MTKViewDelegate {
             prepareStroke(in: view, brush: &defaultBrush)
             prepareStroke(in: view, brush: &predictedBrush)
             if !uniformStagingBuffer.isEmpty {
-                drawStroke(renderTo: canvasTexture, stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, in: view)
+                drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
+                //drawStroke(renderTo: canvasTexture, stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, in: view)
                 uniformStagingBuffer.removeAll(keepingCapacity: true)
             }
         }
@@ -801,40 +790,33 @@ extension Renderer: MTKViewDelegate {
     }
  */
     
-    func drawStroke(renderTo: MTLTexture, stamps: [MTLTexture?], instanceBuffer: [BrushUniform], uniformBuffer: MTLBuffer, in view: MTKView, wait: Bool = false) {
+    func drawStroke(stamps: [MTLTexture?], instanceBuffer: [BrushUniform], uniformBuffer: MTLBuffer, rdp: MTLRenderPassDescriptor, in view: MTKView, wait: Bool = false) {
 
-        let renderPassDescriptor = MTLRenderPassDescriptor()
-        renderPassDescriptor.colorAttachments[0].texture = renderTo
-        renderPassDescriptor.colorAttachments[0].loadAction = .load
-        renderPassDescriptor.colorAttachments[0].storeAction = .store
+        //let renderPassDescriptor = MTLRenderPassDescriptor()
+        //renderPassDescriptor.colorAttachments[0].texture = renderTo
+        //renderPassDescriptor.colorAttachments[0].loadAction = .load
+        //renderPassDescriptor.colorAttachments[0].storeAction = .store
 
         let uniformBuffer_ptr = uniformBuffer.contents()//.assumingMemoryBound(to: Float.self)
         memcpy(uniformBuffer_ptr, instanceBuffer, instanceBuffer.count * MemoryLayout<BrushUniform>.stride)
-        //print("txIndex: \(instanceBuffer[0].txIndex) \(instanceBuffer[1].txIndex)")
-        for b in instanceBuffer {
-            if b.txIndex != 0 {
-                //print ("got a txIndex = 1??")
-            }
-            print("\(b.txIndex)")
-        }
 
         let commandBuffer = commandQueue.makeCommandBuffer()
-        let commandEncoder = commandBuffer?.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
+        let commandEncoder = commandBuffer?.makeRenderCommandEncoder(descriptor: rdp)
         commandEncoder?.setRenderPipelineState(strokePipelineState)
         
         commandEncoder?.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         commandEncoder?.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
-        //let texRange: CountableRange = 0 ..< stamps.count
-        //commandEncoder?.setFragmentTextures(stamps, range: texRange)
-        commandEncoder?.setFragmentTexture(stamps[0], index: 0)
-        commandEncoder?.setFragmentTexture(stamps[1], index: 1)
+        let texRange: CountableRange = 0 ..< stamps.count
+        commandEncoder?.setFragmentTextures(stamps, range: texRange)
+        //commandEncoder?.setFragmentTexture(stamps[0], index: 0)
+        //commandEncoder?.setFragmentTexture(stamps[1], index: 1)
         
         commandEncoder?.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count, instanceCount: instanceBuffer.count)
         //print ("samples: \(instanceBuffer.count)")
         //if wait {
         //}
-        commandEncoder?.waitForFence(fence, before: .vertex)
-        commandEncoder?.updateFence(fence, after: .fragment)
+        //commandEncoder?.waitForFence(fence, before: .vertex)
+        //commandEncoder?.updateFence(fence, after: .fragment)
         commandEncoder?.endEncoding()
         commandBuffer?.commit()
     }

@@ -152,21 +152,20 @@ typedef struct FragmentShaderArguments {
 } fsa;
 
 fragment half4 brush_fragment(vxout fin [[ stage_in ]],
-                              //array<texture2d<half>, 2> tx [[ texture(0) ]])
-                              texture2d<half> tx [[ texture(0) ]],
-                              texture2d<half> tx2 [[ texture(1) ]])
+                              array<texture2d<half>, 2> tx [[ texture(0) ]])
+                              //texture2d<half> tx [[ texture(0) ]],
+                              //texture2d<half> tx2 [[ texture(1) ]])
 {
     constexpr sampler txsampler;
-    //half4 brush = tx[fin.txIndex].sample(txsampler, fin.uv);
     half4 brush;
+    brush = tx[fin.txIndex].sample(txsampler, fin.uv);
     if (fin.txIndex == 0) {
-        brush = tx.sample(txsampler, fin.uv);
+        //brush = tx.sample(txsampler, fin.uv);
         brush.rgb = half3(fin.color.rgb);
     } else if (fin.txIndex == 1){
-        brush = tx2.sample(txsampler, fin.uv);
+        //brush = tx2.sample(txsampler, fin.uv);
     }
     brush.a *= fin.color.a;
-    //brush.r = half(fin.txIndex);
     return brush;
 }
 
