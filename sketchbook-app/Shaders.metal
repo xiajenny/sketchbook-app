@@ -151,9 +151,9 @@ typedef struct FragmentShaderArguments {
     array<texture2d<float>, 2> exampleTextures  [[ id(0)  ]];
 } fsa;
 
+//TODO figure out how to programmatically specify number of textures in array
 fragment half4 brush_fragment(vxout fin [[ stage_in ]],
-                              array<texture2d<half>, 2> tx [[ texture(0) ]])
-                              //texture2d<half> tx [[ texture(0) ]],
+                              array<texture2d<half>, 3> tx [[ texture(0) ]])
                               //texture2d<half> tx2 [[ texture(1) ]])
 {
     constexpr sampler txsampler;

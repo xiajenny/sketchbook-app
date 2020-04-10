@@ -6,15 +6,18 @@
 * Also this: https://developer.apple.com/documentation/uikit/touches_presses_and_gestures/leveraging_touch_input_for_drawing_apps
 * pause play back when not replay or not drawing
 * create commandEncoder once at startup
+* implement color generation in shader (hsv2rgb)
+* remember previous color and show diff before commit
+* color pick from canvas
 
 # DOING
-* refactor size UI code
-* pick colors from UI
-    - show rgb ui color wheel
     - remember color spot
     - use same drag feature as size change ui
 
 # DONE
+* refactor size UI code
+* pick colors from UI
+- show rgb ui color wheel
 * pause rendering after idle timeout
 * Draw circles to represent UI elements
 * capture and replay

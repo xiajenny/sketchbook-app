@@ -140,9 +140,10 @@ class Renderer: NSObject {
     -1.0,-1.0, 0.0,   0.0, 0.0]
     let indices: [UInt16] = [0,1,2,2,4,0]
     
-    var stampTextures: [MTLTexture?] = [nil, nil]
+    var stampTextures: [MTLTexture?] = [nil, nil, nil] //TODO change array size in Shaders.metal
     var brushTexture: MTLTexture! = nil
     var colorPickerTexture: MTLTexture! = nil
+    var colorPickerHueTexture: MTLTexture! = nil
     var canvasTexture: MTLTexture! = nil
     var uiTextures: [MTLTexture?] = [nil, nil]
     var uiTexture: MTLTexture! = nil
@@ -327,14 +328,16 @@ class Renderer: NSObject {
         txdesc.width = Int(defaultBrushSize)
         txdesc.height = Int(defaultBrushSize)
         stampTextures[0] = device.makeTexture(descriptor: txdesc)
-        //brushTexture = device.makeTexture(descriptor: txdesc)
         txdesc.width = uim.colorPickerDim
         txdesc.height = uim.colorPickerDim
-        //colorPickerTexture = device.makeTexture(descriptor: txdesc)
         stampTextures[1] = device.makeTexture(descriptor: txdesc)
+        txdesc.width = uim.widthHue
+        txdesc.height = uim.heightHue
+        stampTextures[2] = device.makeTexture(descriptor: txdesc)
         
         brushTexture = stampTextures[0]
         colorPickerTexture = stampTextures[1]
+        colorPickerHueTexture = stampTextures[2]
     }
     
     func createDescriptors(device: MTLDevice) {
@@ -608,7 +611,10 @@ extension Renderer: MTKViewDelegate {
             
             //drawUI
             //color picker
-            var element = uim.createColorPicker(tex: &colorPickerTexture)
+            var element = uim.createColorPickerHue(tex: &colorPickerHueTexture)
+            uniformStagingBuffer.append(convert(sample: element, txIndex: 2))
+            
+            element = uim.createColorPicker(tex: &colorPickerTexture)
             uniformStagingBuffer.append(convert(sample: element, txIndex: 1))
             
             //button for resizing brush

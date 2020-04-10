@@ -16,16 +16,24 @@ class UIManager {
     
     var buttonPressed = false
     var colorPickMode = false
+    var colorPickHueMode = false
     
-    var mustUpdate = true
+    var updateHue = true
+    var updateHueOnce = true
+    
     var colorPickerDim = 256
     var firstPencilLoc = Vec2()
     var currentPencilLoc = Vec2()
     var newBrushSize: Float = 256
     var buttonLoc = Vec2(x: 0, y: -800)
     
-    var colorPickerLocation = Vec2(x: 800, y: -1800)
+    var colorPickerLocation = Vec2(x: 800, y: -2000)
+    let colorPickerHueOffsetLocation = Vec2(x: 700, y: 0)
     var hue = 260
+    var sat = 255
+    var val = 255
+    let widthHue = 360
+    let heightHue = 2
     var brushColor: Color
     //rendering glue
 
@@ -48,11 +56,40 @@ class UIManager {
         buttonPressed = false
     }
     
-    func fillColorPicker(tex: inout MTLTexture){
-
-        mustUpdate = false
+    func fillColorPickerHue(tex: inout MTLTexture) {
+        updateHueOnce = false
+        
         let bytesPerPixel = 4
-        //draw grid of stuff
+        let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: widthHue * heightHue * bytesPerPixel)
+        for v in 0 ..< heightHue {
+            for h in 0 ..< widthHue {
+                let hsv = itof(i: IntHSV(h: h, s: 255, v: 255, a: 255))
+                let color = hsv2rgb(input: hsv)
+                let index = v * widthHue + h
+                //let index = h * heightHue + v
+                cpData[index * bytesPerPixel + 0] = color.r
+                cpData[index * bytesPerPixel + 1] = color.g
+                cpData[index * bytesPerPixel + 2] = color.b
+                cpData[index * bytesPerPixel + 3] = 255//color.a
+            }
+        }
+        let region = MTLRegionMake2D(0, 0, widthHue, heightHue)
+        tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: widthHue*bytesPerPixel)
+    }
+    
+    func createColorPickerHue(tex: inout MTLTexture) -> BrushSample {
+        if updateHueOnce {
+            fillColorPickerHue(tex: &tex)
+        }
+        
+        let element = BrushSample(position: colorPickerLocation+colorPickerHueOffsetLocation, size: 360, color: defaultButtonColor)
+        return element
+    }
+    
+    func fillColorPicker(tex: inout MTLTexture) {
+        updateHue = false
+
+        let bytesPerPixel = 4
         let dim = colorPickerDim
         let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: dim * dim * bytesPerPixel)
         for s in 0 ... 255 {
@@ -71,11 +108,10 @@ class UIManager {
     }
     
     func createColorPicker(tex: inout MTLTexture) -> BrushSample {
-        if mustUpdate {
+        if updateHue {
             fillColorPicker(tex: &tex)
         }
         let element = BrushSample(position: colorPickerLocation, size: 256, color: defaultButtonColor)
-        // */
         return element
     }
     
@@ -101,30 +137,53 @@ class UIManager {
     
     func firstTouch(pos: Vec2) {
         //get box of color picker
-        let offset = Float(colorPickerDim/2)
-        let left = colorPickerLocation.x - offset
-        let right = colorPickerLocation.x + offset
-        let top = colorPickerLocation.y + offset
-        let bottom = colorPickerLocation.y - offset
+        var offset = Float(colorPickerDim)
+        var left = colorPickerLocation.x - offset
+        var right = colorPickerLocation.x + offset
+        var top = colorPickerLocation.y + offset
+        var bottom = colorPickerLocation.y - offset
         
         colorPickMode = left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
+        
+        offset = Float(widthHue)
+        let hueLoc = colorPickerLocation + colorPickerHueOffsetLocation
+        left = hueLoc.x - offset
+        right = hueLoc.x + offset
+        top = hueLoc.y + offset
+        bottom = hueLoc.y - offset
+        colorPickHueMode = left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
+        
     }
     
     func cantDraw() -> Bool {
-        return buttonPressed || colorPickMode
+        return buttonPressed || colorPickMode || colorPickHueMode
     }
     
     func colorPick(pos: Vec2) -> Color{
         if colorPickMode {
-            let offset = Float(colorPickerDim/2)
+            let offset = Float(colorPickerDim)
             var origin = colorPickerLocation
-            origin.x -= offset
+            origin.x += offset
             origin.y += offset
-            let sv = origin - pos
-            let s = sv.x
-            let v = sv.y
-            let hsv = itof(i: IntHSV(h: hue, s: Int(s), v: Int(v), a: 255))
+            let sv = (origin - pos)/2
+            sat = Int(min(255.0, max(0.0, 255-sv.y)))
+            val = Int(min(255, max(0, 255-sv.x)))
+//            print("pos: \(pos) origin: \(origin) sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
+            print("sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
+            let hsv = itof(i: IntHSV(h: hue, s: Int(sat), v: Int(val), a: 255))
             brushColor = hsv2rgb(input: hsv)
+        }
+        
+        if colorPickHueMode {
+            let offset = Float(colorPickerDim)
+            var origin = colorPickerLocation
+            origin.x += offset
+            let sv = (pos - origin) / 2
+            hue = Int(min(255.0, max(0.0, sv.x)))
+            let hsv = itof(i: IntHSV(h: hue, s: Int(sat), v: Int(val), a: 255))
+            brushColor = hsv2rgb(input: hsv)
+            print("pos: \(pos.x) origin: \(origin.x) sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
+            updateHue = true
         }
         return brushColor
     }
