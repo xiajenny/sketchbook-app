@@ -49,21 +49,7 @@ struct Vertex {
     var color: float4
 }
 
-struct BrushSample {
-    var position: Vec2 = Vec2(x: 40, y: 40)
-    var force: Float = 1
-    var first: Bool = true
-    var size: Float = 16
-    var alpha: Float = 1.0
-    var color = Color(r: 255,g: 10,b: 255,a:100)
-}
-
-extension BrushSample: CustomStringConvertible {
-    var description: String {
-        return "pos: \(position), f: \(force), size: \(size), color: \(color)"
-    }
-}
-
+//struct used in metal shaders
 struct BrushUniform {
     var position: Vec2
     var size: Vec2
@@ -71,44 +57,9 @@ struct BrushUniform {
     var txIndex: uint = 1
 }
 
-struct Brush {
-    var name: String
-    var size: Float = defaultBrushSize
-    var sampleBuffer: [BrushSample] = []
-    //var strokeBuffer: [BrushUniform] = []
-    var color = Color(r: 10,g: 10,b: 80,a:155)
-    var prevSample = BrushSample()
-    var touchEnded: Bool = true
-    var firstUpdateIndex: Int = 0
-    var txwidth: Int = 0
-    var txheight: Int = 0
-    init (n: String, w: Int, h: Int) {
-        name = n
-        //strokeBuffer.reserveCapacity(1000)
-        txwidth = w
-        txheight = h
-    }
-
-    mutating func newColor() {
-        color.r = UInt8((Int(color.r) + 43) % 256)
-        color.g = UInt8((Int(color.g) + 19) % 256)
-        color.b = UInt8((Int(color.b) + 4) % 256)
-    }
-    
-    mutating func append(pos: Vec2, force: Float, first: Bool) {
-        var sample = BrushSample(position: pos, force: force, first: first)
-        sample.size = self.size //* force
-        sample.color = self.color
-        sample.first = first
-        sample.force = force
-        sampleBuffer.append(sample)
-        //print("appending brush.size: \(self.size) f: \(force) size: \(sample.size)")
-    }
-
-}
-
 class Renderer: NSObject {
     var view: MTKView!
+    var device: MTLDevice!
     var commandQueue: MTLCommandQueue!
     var commandBuffer: MTLCommandBuffer!
     
@@ -154,19 +105,7 @@ class Renderer: NSObject {
     var winheight: Int = 0
     var txwidth: Int = 0
     var txheight: Int = 0
-    
-    var defaultBrush: Brush
-    var updatedBrush: Brush
-    var predictedBrush: Brush
 
-    //test stuff
-    var maxTouch: Int = 100
-    var replayBrushBuffer: [BrushSample] = []
-    var replay: Bool = false
-    var enableReplay: Bool = false
-    var beginReplay: Bool = false
-    var firstTouch: UITouch? = nil
-    
     var framesIdle: UInt = 0
     
     //ui stuff
@@ -174,28 +113,29 @@ class Renderer: NSObject {
     let clearColor = MTLClearColorMake(00/255.0, 0/255.0, 0/255.0, 0.0)
     let defaultColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 1.0)
 
-    var uim: UIManager
+    var uiManager: UIManager? = nil
+    var inputManager: InputManager? = nil
 
+    var standardBrush: Brush? = nil
+    
     //MARK: - Setup
-    init(device: MTLDevice, with v: MTKView) {
+    init(d: MTLDevice, with v: MTKView) {
+        device = d
         view = v
         txwidth = 2048
         txheight = 2736 // multiple of 16 px tile size
         //may need to change for a different screen
         winwidth = 2048
         winheight = 2732
-        defaultBrush = Brush(n: "defaultBrush", w: txwidth, h: txheight)
-        defaultBrush.size = 32
-        defaultBrush.color = Color(r: 255, g: 0, b: 0,a:255)
-        updatedBrush = Brush(n: "updatedBrush", w: txwidth, h: txheight)
-        updatedBrush.size = 16
-        updatedBrush.color = Color(r: 0, g: 255, b: 0,a:255)
-        predictedBrush = Brush(n: "predictedBrush", w: txwidth, h: txheight)
-        predictedBrush.size = 40
-        predictedBrush.color = Color(r: 0, g: 0, b: 255,a:255)
 
-        uim = UIManager()
         super.init()
+    }
+    
+    func init2(u: UIManager, i: InputManager) {
+        uiManager = u
+        inputManager = i
+        standardBrush = inputManager?.updatedBrush
+        
         createCommandQueue(device: device)
         //commandBuffer = commandQueue.makeCommandBuffer()
         createPipelineState(device: device)
@@ -207,8 +147,6 @@ class Renderer: NSObject {
         
         //clearCanvas(color: Color(r: 200, g: 40, b: 40))
         fillBrush(color: Color(r:40, g: 40, b: 200,a:255))
-        replayBrushBuffer.reserveCapacity(maxTouch)
-        
     }
     
     func createCommandQueue(device: MTLDevice) {
@@ -328,11 +266,11 @@ class Renderer: NSObject {
         txdesc.width = Int(defaultBrushSize)
         txdesc.height = Int(defaultBrushSize)
         stampTextures[0] = device.makeTexture(descriptor: txdesc)
-        txdesc.width = uim.colorPickerDim
-        txdesc.height = uim.colorPickerDim
+        txdesc.width = uiManager!.colorPickerDim
+        txdesc.height = uiManager!.colorPickerDim
         stampTextures[1] = device.makeTexture(descriptor: txdesc)
-        txdesc.width = uim.widthHue
-        txdesc.height = uim.heightHue
+        txdesc.width = uiManager!.widthHue
+        txdesc.height = uiManager!.heightHue
         stampTextures[2] = device.makeTexture(descriptor: txdesc)
         
         brushTexture = stampTextures[0]
@@ -413,144 +351,6 @@ class Renderer: NSObject {
         }
         markerData.deallocate()
     }
-    
-
-    //MARK: - touch
-    func processTouchPosition(touch: UITouch, view: MTKView) -> Vec2 {
-        let t = touch.preciseLocation(in: view)
-        let txw = Float(txwidth)
-        let txh = Float(txheight)
-        let bounds = view.bounds.size
-        let x = 2 * Float(t.x) / Float(bounds.width) * txw - txw
-        let y = 2 * Float(t.y) / Float(bounds.height) * txh - txh
-        let pos: Vec2 = Vec2(x: x,y: y)
-        //let liv = touch.location(in: view)
-        //print("processTouchPosition: \(pos), locInView: \(liv)")
-        return pos
-    }
-
-    enum TouchType : Int {
-        case update
-        case standard
-        case prediction
-    }
-    
-    let filter: Int = 10
-    var touchCount: Int = 0
-    
-    func updateTouch(touches: Set<UITouch>) {
-        if uim.cantDraw() {
-            return
-        }
-        for touch in touches {
-            guard let index = touch.estimationUpdateIndex else {
-                continue
-            }
-            let pos = processTouchPosition(touch: touch, view: view)
-            let first = updatedBrush.firstUpdateIndex == Int(index)
-            updatedBrush.append(pos: pos, force: Float(touch.force), first: first)
-            if first {
-                print("first update: \(pos)")
-            }
-            //print("updated force: \(touch.force)")
-        }
-    }
-    
-    func didTouch(touches: Set<UITouch>, with event: UIEvent?, first: Bool = false, last: Bool = false, type: TouchType = .standard) {
-        if replay {
-            if replayBrushBuffer.isEmpty {
-                replay = false
-                let clearColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 1.0)
-                clearTexture(texture: canvasTexture, color: clearColor, in: view)
-            } else {
-                return
-            }
-        }
-        
-        //button hit eval
-        if let touch = touches.first, touch.type == .direct {
-            
-            let target = Vec2(x: 0, y: -2000)
-            let pos = processTouchPosition(touch: touch, view: view)
-            let hit = v_len(a: target - pos) < 140.0
-            //print("dist: \(v_len(a: target - pos))")
-            if hit && first {
-                uim.pressButton()
-            }
-            if last {
-                uim.releaseButton()
-                updatedBrush.size = uim.newBrushSize
-            }
-        }
-        
-        
-        //eval first: need to mark first sample of a stroke
-        if first {
-            firstTouch = touches.first!
-            let pos = processTouchPosition(touch: firstTouch!, view: view)
-            if firstTouch!.type == .pencil {
-                uim.firstPencilLoc = pos
-            }
-            
-            if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
-                if let estimationUpdateIndex = firstTouch?.estimationUpdateIndex {
-                    updatedBrush.firstUpdateIndex = Int(estimationUpdateIndex)
-                }
-            }
-            
-            //if first touch is in color picker, disable drawing, go to color pick mode
-            uim.firstTouch(pos: pos)
-        }
-
-        //predicted touch
-        if let predictedTouches = event!.predictedTouches(for: firstTouch!)
-        {
-            //print("predictedTouches:", predictedTouches.count)
-            
-            var firstOnce = first
-            for predictedTouch in predictedTouches
-            {
-                //let locationInView =  predictedTouch.location(in: view)
-                let pos = processTouchPosition(touch: predictedTouch, view: view)
-                //predictedBrush.append(pos: pos, force: Float(predictedTouch.force), first: firstOnce)
-                firstOnce = false
-            }
-        }
-        
-        //touches
-        var firstOnce = first
-        for touch in touches {
-            touchCount += 1
-            if touchCount == filter {
-                touchCount = 0
-            } else {
-                //continue
-            }
-            let pos = processTouchPosition(touch: touch, view: view)
-            //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce)
-            firstOnce = false
-            if touch.type == .pencil {
-                uim.currentPencilLoc = pos
-            }
-            
-            updatedBrush.color = uim.colorPick(pos: pos)
-            
-            if enableReplay == true {
-                guard let brush = defaultBrush.sampleBuffer.last else { return }
-                if replayBrushBuffer.count < maxTouch {
-                    replayBrushBuffer.append(brush)
-                    print ("replaybuff: \(replayBrushBuffer.count)")
-                } else {
-                    if !replay {
-                        beginReplay = true
-                        replay = true
-                        print("starting replay!")
-                        break
-                    }
-                }
-            }
-        }
-    }
 }
 
 extension Renderer: MTKViewDelegate {
@@ -588,16 +388,17 @@ extension Renderer: MTKViewDelegate {
      *  - don't redraw at all if nothing changes (render pause)
      */
     func draw(in view: MTKView) {
-        //draw on texture first, then present to screen
-        //drawCanvas(in: view)
+        /*
         if beginReplay {
             beginReplay = false
             let clearColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 1.0)
             clearTexture(texture: canvasTexture, color: clearColor, in: view)
             clearCanvas(color: Color(r: 200, g: 40, b: 40,a:255))
-        } else {
-            //if (!replay && defaultBrush.inputBuffer.isEmpty) || (replay && replayBrushBuffer.isEmpty) {
-            if false {
+        } else
+        // */
+        if true {
+            /*
+            if (!replay && defaultBrush.inputBuffer.isEmpty) || (replay && replayBrushBuffer.isEmpty) {
                 framesIdle += 1
                 if framesIdle > 60 {
                     view.isPaused = true
@@ -607,24 +408,27 @@ extension Renderer: MTKViewDelegate {
             } else {
                 framesIdle = 0
             }
+            // */
+            
             drawCanvasInstanced(in: view)
             
             //drawUI
+            let color = inputManager!.updatedBrush.color
             //color picker
-            var element = uim.createColorPickerHue(tex: &colorPickerHueTexture)
+            var element = uiManager!.createColorPickerHue(tex: &colorPickerHueTexture)
             uniformStagingBuffer.append(convert(sample: element, txIndex: 2))
             
-            element = uim.createColorPicker(tex: &colorPickerTexture)
+            element = uiManager!.createColorPicker(tex: &colorPickerTexture)
             uniformStagingBuffer.append(convert(sample: element, txIndex: 1))
             
             //button for resizing brush
-            element = uim.createResizeBrushButton()
-            element.color = updatedBrush.color
+            element = uiManager!.createResizeBrushButton()
+            element.color = color
             uniformStagingBuffer.append(convert(sample: element))
             
-            if uim.buttonPressed {
-                element = uim.createResizeBrush(brushSize: updatedBrush.size)
-                element.color = updatedBrush.color
+            if uiManager!.buttonPressed {
+                element = uiManager!.createResizeBrush(brushSize: standardBrush!.size)
+                element.color = color
                 uniformStagingBuffer.append(convert(sample: element))
             }
             
@@ -684,6 +488,11 @@ extension Renderer: MTKViewDelegate {
     }
     
     func prepareStroke(in view: MTKView, brush: inout Brush) {
+        let count = brush.sampleBuffer.count
+        if count > 0 {
+            print ("renderer: brush samples: \(count)")
+        }
+        
         let newStroke = !brush.sampleBuffer.isEmpty && brush.sampleBuffer.first!.first
         var c = newStroke ? brush.sampleBuffer.first : brush.prevSample
         for sample in brush.sampleBuffer {
@@ -693,7 +502,8 @@ extension Renderer: MTKViewDelegate {
         brush.sampleBuffer.removeAll()
     }
     
-    func drawCanvasInstanced(in view: MTKView) {
+    /*
+    func drawReplayCanvas(in view: MTKView) {
         if replay {
             if replayBrushBuffer.isEmpty {
                 return
@@ -711,14 +521,18 @@ extension Renderer: MTKViewDelegate {
                 drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
                 uniformStagingBuffer.removeAll(keepingCapacity: true)
             }
-        } else {
-            prepareStroke(in: view, brush: &updatedBrush)
-            prepareStroke(in: view, brush: &defaultBrush)
-            prepareStroke(in: view, brush: &predictedBrush)
-            if !uniformStagingBuffer.isEmpty {
-                drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
-                uniformStagingBuffer.removeAll(keepingCapacity: true)
-            }
+        }
+    }
+ // */
+    
+    func drawCanvasInstanced(in view: MTKView) {
+        //prepareStroke(in: view, brush: &(standardBrush)!)
+        prepareStroke(in: view, brush: &(inputManager!.updatedBrush))
+        //prepareStroke(in: view, brush: &defaultBrush)
+        //prepareStroke(in: view, brush: &predictedBrush)
+        if !uniformStagingBuffer.isEmpty {
+            drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
+            uniformStagingBuffer.removeAll(keepingCapacity: true)
         }
     }
     

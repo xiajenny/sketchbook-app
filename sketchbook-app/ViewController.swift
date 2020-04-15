@@ -6,6 +6,9 @@ import ModelIO
 class ViewController: UIViewController {
     var mtkView: MTKView!
     var renderer: Renderer!
+    var inputManager: InputManager!
+    var uiManager: UIManager!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -24,7 +27,11 @@ class ViewController: UIViewController {
         mtkView.depthStencilPixelFormat = .depth32Float
         
         //from modern-metal renderer = Renderer(view: mtkView, device: device)
-        renderer = Renderer(device: device, with: mtkView)
+        uiManager = UIManager()
+        renderer = Renderer(d: device, with: mtkView)
+        inputManager = InputManager(w: renderer.txwidth, h: renderer.txheight, u: uiManager, v: mtkView)
+        renderer.init2(u: uiManager, i: inputManager)
+        
         mtkView.delegate = renderer
         mtkView.isMultipleTouchEnabled = true
     }
@@ -36,21 +43,21 @@ class ViewController: UIViewController {
         let t = touch!.preciseLocation(in: view)
         print("\(touchCount) touches started \(t.x) \(t.y)")
         mtkView.isPaused = false;
-        renderer.didTouch(touches: touches, with: event, first: true)
+        inputManager.didTouch(touches: touches, with: event, first: true)
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        renderer.didTouch(touches: touches, with: event, first: false)
+        inputManager.didTouch(touches: touches, with: event, first: false)
         mtkView.isPaused = false;
         
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        renderer.didTouch(touches: touches, with: event, last: true)
+        inputManager.didTouch(touches: touches, with: event, last: true)
         
         let touchCount = touches.count
         let touch = touches.first
         let t = touch!.preciseLocation(in: view)
         print("\(touchCount) touches ended \(t.x) \(t.y)")
-        renderer.defaultBrush.touchEnded = true
+        inputManager.defaultBrush.touchEnded = true
         //view paused in renderer.drawFrame
         //mtkView.isPaused = true;
     }
@@ -61,7 +68,7 @@ class ViewController: UIViewController {
             }
             //print ("update index: \(index) force: \(touch.force)")
         }
-        renderer.updateTouch(touches: touches)
+        inputManager.updateTouch(touches: touches)
     }
     
 }
