@@ -23,7 +23,7 @@ extension BrushSample: CustomStringConvertible {
     }
 }
 
-struct Brush {
+class Brush {
     var name: String
     var size: Float = defaultBrushSize
     var sampleBuffer: [BrushSample] = []
@@ -41,13 +41,7 @@ struct Brush {
         txheight = h
     }
 
-    mutating func newColor() {
-        color.r = UInt8((Int(color.r) + 43) % 256)
-        color.g = UInt8((Int(color.g) + 19) % 256)
-        color.b = UInt8((Int(color.b) + 4) % 256)
-    }
-    
-    mutating func append(pos: Vec2, force: Float, first: Bool) {
+    func append(pos: Vec2, force: Float, first: Bool) {
         var sample = BrushSample(position: pos, force: force, first: first)
         sample.size = self.size //* force
         sample.color = self.color

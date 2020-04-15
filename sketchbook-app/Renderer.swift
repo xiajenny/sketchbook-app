@@ -413,7 +413,6 @@ extension Renderer: MTKViewDelegate {
             drawCanvasInstanced(in: view)
             
             //drawUI
-            let color = inputManager!.updatedBrush.color
             //color picker
             var element = uiManager!.createColorPickerHue(tex: &colorPickerHueTexture)
             uniformStagingBuffer.append(convert(sample: element, txIndex: 2))
@@ -423,12 +422,12 @@ extension Renderer: MTKViewDelegate {
             
             //button for resizing brush
             element = uiManager!.createResizeBrushButton()
-            element.color = color
+            element.color = standardBrush!.color
             uniformStagingBuffer.append(convert(sample: element))
             
             if uiManager!.buttonPressed {
                 element = uiManager!.createResizeBrush(brushSize: standardBrush!.size)
-                element.color = color
+                element.color = standardBrush!.color
                 uniformStagingBuffer.append(convert(sample: element))
             }
             
