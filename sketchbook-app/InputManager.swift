@@ -111,7 +111,7 @@ class InputManager {
         //button hit eval
         if let touch = touches.first, touch.type == .direct {
             
-            let target = Vec2(x: 0, y: -2000)
+            let target = Vec2(x: 0, y: -2000)//brush size button location
             let pos = processTouchPosition(touch: touch, view: view)
             let hit = v_len(a: target - pos) < 140.0
             //print("dist: \(v_len(a: target - pos))")
