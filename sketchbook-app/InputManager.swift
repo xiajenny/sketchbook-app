@@ -58,7 +58,7 @@ class InputManager {
         let bounds = view.bounds.size
         let x = 2 * Float(t.x) / Float(bounds.width) * txw - txw
         let y = 2 * Float(t.y) / Float(bounds.height) * txh - txh
-        let pos: Vec2 = Vec2(x: x,y: y)
+        let pos: Vec2 = Vec2(x,y)
         //let liv = touch.location(in: view)
         //print("processTouchPosition: \(pos), locInView: \(liv)")
         return pos
@@ -111,7 +111,7 @@ class InputManager {
         //button hit eval
         if let touch = touches.first, touch.type == .direct {
             
-            let target = Vec2(x: 0, y: -2000)//brush size button location
+            let target = Vec2(0, -2000)//brush size button location
             let pos = processTouchPosition(touch: touch, view: view)
             let hit = v_len(a: target - pos) < 140.0
             //print("dist: \(v_len(a: target - pos))")

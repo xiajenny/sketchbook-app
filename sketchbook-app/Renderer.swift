@@ -11,6 +11,15 @@ let defaultBrushSize : Float = 256
 struct Vec2 {
     var x : Float = 0.0
     var y : Float = 0.0
+    init () {}
+    init (_ _x: Float) {
+        x = _x
+        y = _x
+    }
+    init (_ _x: Float, _ _y: Float) {
+        x = _x
+        y = _y
+    }
 }
 
 extension Vec2: CustomStringConvertible {
@@ -21,19 +30,19 @@ extension Vec2: CustomStringConvertible {
     
 extension Vec2 {
     static func + (left: Vec2, right: Vec2) -> Vec2 {
-        return Vec2(x: left.x + right.x, y: left.y+right.y)
+        return Vec2(left.x + right.x, left.y+right.y)
     }
     static func - (left: Vec2, right: Vec2) -> Vec2 {
-        return Vec2(x: left.x - right.x, y: left.y-right.y)
+        return Vec2(left.x - right.x, left.y-right.y)
     }
     static func * (left: Vec2, right: Vec2) -> Vec2 {
-        return Vec2(x: left.x * right.x, y: left.y*right.y)
+        return Vec2(left.x * right.x, left.y*right.y)
     }
     static func * (left: Vec2, right: Float) -> Vec2 {
-        return Vec2(x: left.x * right, y: left.y*right)
+        return Vec2(left.x * right, left.y*right)
     }
     static func / (left: Vec2, right: Float) -> Vec2 {
-        return Vec2(x: left.x / right, y: left.y/right)
+        return Vec2(left.x / right, left.y/right)
     }
 }
 
@@ -55,6 +64,10 @@ struct BrushUniform {
     var size: Vec2
     var color: float4
     var txIndex: uint = 1
+}
+
+class TextureBox {
+    var t: [MTLTexture?] = []//nil, nil, nil]
 }
 
 class Renderer: NSObject {
@@ -91,7 +104,8 @@ class Renderer: NSObject {
     -1.0,-1.0, 0.0,   0.0, 0.0]
     let indices: [UInt16] = [0,1,2,2,4,0]
     
-    var stampTextures: [MTLTexture?] = [nil, nil, nil] //TODO change array size in Shaders.metal
+    var stampTextures = TextureBox()
+    //var stampTextures: [MTLTexture?] = [nil, nil, nil] //TODO change array size in Shaders.metal
     var brushTexture: MTLTexture! = nil
     var colorPickerTexture: MTLTexture! = nil
     var colorPickerHueTexture: MTLTexture! = nil
@@ -129,6 +143,7 @@ class Renderer: NSObject {
         winheight = 2732
 
         super.init()
+        createTextures(device: device)
     }
     
     func init2(u: UIManager, i: InputManager) {
@@ -140,7 +155,6 @@ class Renderer: NSObject {
         //commandBuffer = commandQueue.makeCommandBuffer()
         createPipelineState(device: device)
         createBuffers(device: device)
-        createTextures(device: device)
         createDescriptors(device: device)
         
         fence = device.makeFence()
@@ -245,7 +259,19 @@ class Renderer: NSObject {
         uniformCPBuffer = device.makeBuffer(length: 30 * MemoryLayout<BrushUniform>.stride)
     }
     
+    func createTexture(_ texdesc: MTLTextureDescriptor, size: Vec2) -> Int{
+        print("createTexture");
+        texdesc.pixelFormat = MTLPixelFormat.rgba8Unorm
+        texdesc.usage = [.renderTarget, .shaderRead, .shaderWrite]
+        texdesc.storageMode = MTLStorageMode.shared
+        texdesc.textureType = MTLTextureType.type2D
+        texdesc.width = Int(size.x)
+        texdesc.height = Int(size.y)
+        stampTextures.t.append(device.makeTexture(descriptor: texdesc))
+        return stampTextures.t.count - 1
+    }
     func createTextures(device: MTLDevice) {
+        print ("tbox size: \(stampTextures.t.count)")
         // create canvas texture
         let txdesc = MTLTextureDescriptor()
         //txdesc.pixelFormat = MTLPixelFormat.BGRA8Unorm
@@ -265,17 +291,21 @@ class Renderer: NSObject {
         txdesc.usage = [.shaderRead, .shaderWrite]
         txdesc.width = Int(defaultBrushSize)
         txdesc.height = Int(defaultBrushSize)
-        stampTextures[0] = device.makeTexture(descriptor: txdesc)
-        txdesc.width = uiManager!.colorPickerDim
-        txdesc.height = uiManager!.colorPickerDim
-        stampTextures[1] = device.makeTexture(descriptor: txdesc)
-        txdesc.width = uiManager!.widthHue
-        txdesc.height = uiManager!.heightHue
-        stampTextures[2] = device.makeTexture(descriptor: txdesc)
+        //stampTextures.t[0] = device.makeTexture(descriptor: txdesc)
+        stampTextures.t.append(device.makeTexture(descriptor: txdesc))
+        //txdesc.width = uiManager!.colorPickerDim
+        //txdesc.height = uiManager!.colorPickerDim
+        ////stampTextures.t[1] = device.makeTexture(descriptor: txdesc)
+        //stampTextures.t.append(device.makeTexture(descriptor: txdesc))
+        //txdesc.width = uiManager!.widthHue
+        //txdesc.height = uiManager!.heightHue
+        ////stampTextures.t[2] = device.makeTexture(descriptor: txdesc)
+        //stampTextures.t.append(device.makeTexture(descriptor: txdesc))
         
-        brushTexture = stampTextures[0]
-        colorPickerTexture = stampTextures[1]
-        colorPickerHueTexture = stampTextures[2]
+        print ("tbox size: \(stampTextures.t.count)")
+        brushTexture = stampTextures.t[0]
+        //colorPickerTexture = stampTextures.t[1]
+        //colorPickerHueTexture = stampTextures.t[2]
     }
     
     func createDescriptors(device: MTLDevice) {
@@ -356,10 +386,10 @@ class Renderer: NSObject {
 extension Renderer: MTKViewDelegate {
 
     func convert(sample: BrushSample, txIndex: uint = 0) -> BrushUniform {
-        let p = Vec2(x: sample.position.x / Float(txwidth),
-                     y: sample.position.y / Float(txheight))
-        let s = Vec2(x: sample.size / Float(txwidth),
-                     y: sample.size / Float(txheight))
+        let p = Vec2(sample.position.x / Float(txwidth),
+                     sample.position.y / Float(txheight))
+        let s = Vec2(sample.size / Float(txwidth),
+                     sample.size / Float(txheight))
         let c = float4(Float(sample.color.r)/255.0,
                        Float(sample.color.g)/255.0,
                        Float(sample.color.b)/255.0,
@@ -414,10 +444,12 @@ extension Renderer: MTKViewDelegate {
             
             //drawUI
             //color picker
-            var element = uiManager!.createColorPickerHue(tex: &colorPickerHueTexture)
+            //var element = uiManager!.createColorPickerHue(tex: &colorPickerHueTexture)
+            var element = uiManager!.createColorPickerHue(box: stampTextures)
             uniformStagingBuffer.append(convert(sample: element, txIndex: 2))
             
-            element = uiManager!.createColorPicker(tex: &colorPickerTexture)
+            //element = uiManager!.createColorPicker(tex: &colorPickerTexture)
+            element = uiManager!.createColorPicker(box: stampTextures)
             uniformStagingBuffer.append(convert(sample: element, txIndex: 1))
             
             //button for resizing brush
@@ -433,7 +465,7 @@ extension Renderer: MTKViewDelegate {
             
             //draw UI
             //note: UI texture implicitly cleared by rdpUI
-            drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpUI, in: view, wait: true)
+            drawStroke(stamps: stampTextures.t, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpUI, in: view, wait: true)
             uniformStagingBuffer.removeAll(keepingCapacity: true)
         }
         drawFrame(in: view)
@@ -530,7 +562,7 @@ extension Renderer: MTKViewDelegate {
         //prepareStroke(in: view, brush: &defaultBrush)
         //prepareStroke(in: view, brush: &predictedBrush)
         if !uniformStagingBuffer.isEmpty {
-            drawStroke(stamps: stampTextures, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
+            drawStroke(stamps: stampTextures.t, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view)
             uniformStagingBuffer.removeAll(keepingCapacity: true)
         }
     }
