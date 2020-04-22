@@ -142,7 +142,7 @@ class InputManager {
             //if first touch is in color picker, disable drawing, go to color pick mode
             uim.firstTouch(pos: pos)
         }
-        
+/*
         //predicted touch
         if let predictedTouches = event!.predictedTouches(for: firstTouch!)
         {
@@ -153,7 +153,7 @@ class InputManager {
                 //predictedBrush.append(pos: pos, force: Float(predictedTouch.force), first: firstOnce)
             }
         }
-        
+*/
         //touches
         //var firstOnce = first
         for touch in touches {

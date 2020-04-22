@@ -81,14 +81,14 @@ fragment half4 clear_fragment(vxout fin [[ stage_in ]])
     return half4(0,0,0,0);
 }
 
-fragment half4 basic_fragment(vxout fin [[ stage_in ]],
-                              texture2d<half> tx [[ texture(0) ]],
-                              texture2d<half> ui [[ texture(1) ]])
+fragment float4 basic_fragment(vxout fin [[ stage_in ]],
+                              texture2d<float> tx [[ texture(0) ]],
+                              texture2d<float> ui [[ texture(1) ]])
 {
     constexpr sampler txsampler;
-    half4 u = ui.sample(txsampler, fin.uv);
-    half4 t = tx.sample(txsampler, fin.uv);
-    half4 ret = u * u.a + t * (1 - u.a);
+    float4 u = ui.sample(txsampler, fin.uv);
+    float4 t = tx.sample(txsampler, fin.uv);
+    float4 ret = u * u.a + t * (1 - u.a);
     ret.a = 1;
     return ret;
 }
@@ -152,16 +152,16 @@ typedef struct FragmentShaderArguments {
 } fsa;
 
 //TODO figure out how to programmatically specify number of textures in array
-fragment half4 brush_fragment(vxout fin [[ stage_in ]],
-                              array<texture2d<half>, 3> tx [[ texture(0) ]])
+fragment float4 brush_fragment(vxout fin [[ stage_in ]],
+                              array<texture2d<float>, 3> tx [[ texture(0) ]])
                               //texture2d<half> tx2 [[ texture(1) ]])
 {
     constexpr sampler txsampler;
-    half4 brush;
+    float4 brush;
     brush = tx[fin.txIndex].sample(txsampler, fin.uv);
     if (fin.txIndex == 0) {
         //brush = tx.sample(txsampler, fin.uv);
-        brush.rgb = half3(fin.color.rgb);
+        brush.rgb = float3(fin.color.rgb);
     } else if (fin.txIndex == 1){
         //brush = tx2.sample(txsampler, fin.uv);
     }
