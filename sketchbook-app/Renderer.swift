@@ -185,7 +185,7 @@ class Renderer: NSObject {
         // create clear fragment pipeline
         let clearFragmentFunction = library?.makeFunction(name: "clear_fragment")
         renderPipelineDescriptor.fragmentFunction = clearFragmentFunction
-        renderPipelineDescriptor.colorAttachments[0].pixelFormat = .rgba8Unorm
+        renderPipelineDescriptor.colorAttachments[0].pixelFormat = .rgba16Unorm
         do {
             clearPipelineState = try device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
         } catch {
@@ -196,7 +196,7 @@ class Renderer: NSObject {
         let brushVertexFunction = library?.makeFunction(name: "brush_vertex")
         let brushFragmentFunction = library?.makeFunction(name: "brush_fragment")
 
-        renderPipelineDescriptor.colorAttachments[0].pixelFormat = .rgba8Unorm
+        renderPipelineDescriptor.colorAttachments[0].pixelFormat = .rgba16Unorm
         renderPipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
         renderPipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
         renderPipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
@@ -249,7 +249,7 @@ class Renderer: NSObject {
         // create canvas texture
         let txdesc = MTLTextureDescriptor()
         //txdesc.pixelFormat = MTLPixelFormat.BGRA8Unorm
-        txdesc.pixelFormat = MTLPixelFormat.rgba8Unorm
+        txdesc.pixelFormat = MTLPixelFormat.rgba16Unorm
         txdesc.usage = [.renderTarget, .shaderRead, .shaderWrite]
         txdesc.storageMode = MTLStorageMode.shared
         txdesc.textureType = MTLTextureType.type2D
@@ -294,59 +294,59 @@ class Renderer: NSObject {
         uitIndex %= uiTextures.count
         return uiTextures[uitIndex]!
     }
-    func fillColor(imgData: UnsafeMutablePointer<UInt8>, width: Int, height: Int, color: Color) -> UnsafeMutablePointer<UInt8>{
+    func fillColor(imgData: UnsafeMutablePointer<UInt16>, width: Int, height: Int, color: Color) -> UnsafeMutablePointer<UInt16>{
         var i = 0
         for _ in 0 ..< height {
             for _ in 0 ..< width {
-                imgData[i+0] = color.r
-                imgData[i+1] = color.g
-                imgData[i+2] = color.b
-                imgData[i+3] = 0xff
-                i+=4
+                imgData[i + 0] = UInt16(color.r) * 256
+                imgData[i + 1] = UInt16(color.g) * 256
+                imgData[i + 2] = UInt16(color.b) * 256
+                imgData[i + 3] = 0xffff
+                i += 4
             }
         }
         return imgData
     }
     
     func fillBrush(color: Color) {
-        let bytesPerPixel = 4
+        let bytesPerPixel = 8
         let kw = Int(defaultBrushSize)
         let kernelSize = kw * kw * 4
-        let brushData = UnsafeMutablePointer<UInt8>.allocate(capacity: kernelSize)
+        let brushData = UnsafeMutablePointer<UInt16>.allocate(capacity: kernelSize)
         let center = ivec2(kw/2, kw/2)
         for x in 0 ..< kw {
             for y in 0 ..< kw {
                 let i = (y * kw + x) * 4 //4 is num components per pixel
                 //if distance from center is more than brush radius, 0 alpha
-                brushData[i+0] = color.r
-                brushData[i+1] = color.g
-                brushData[i+2] = color.b
-                if pow(Decimal(x - center.x), 2) + pow(Decimal(y - center.y), 2) < pow(Decimal(kw/2), 2) {
-                    brushData[i+3] = 0xff
+                brushData[i + 0] = UInt16(color.r) * 256
+                brushData[i + 1] = UInt16(color.g) * 256
+                brushData[i + 2] = UInt16(color.b) * 256
+                if pow(Decimal(x - center.x), 2) + pow(Decimal(y - center.y), 2) < pow(Decimal(kw / 2), 2) {
+                    brushData[i + 3] = 0xffff
                 } else {
-                    brushData[i+3] = 0
+                    brushData[i + 3] = 0
                 }
             }
         }
         let region = MTLRegionMake2D(0, 0, kw, kw)
-        brushTexture.replace(region: region, mipmapLevel: 0, withBytes: brushData, bytesPerRow: kw*bytesPerPixel)
+        brushTexture.replace(region: region, mipmapLevel: 0, withBytes: brushData, bytesPerRow: kw * bytesPerPixel)
         brushData.deallocate()
     }
     
     func clearCanvas(color: Color) {
-        let bytesPerPixel = 4
+        let bytesPerPixel = 8
 
         //draw grids
         let w = 8
         let markerColor = Color(r: 0,g: 0,b: 0,a:255)
-        var markerData = UnsafeMutablePointer<UInt8>.allocate(capacity: w*w*4)
+        var markerData = UnsafeMutablePointer<UInt16>.allocate(capacity: w * w * 4)
         markerData = fillColor(imgData: markerData, width: w, height: w, color: markerColor)
         for row in 0 ... 7 {
             for col in 0 ... 7 {
                 let x = row * txwidth / 8
                 let y = col * txheight / 8
                 let region = MTLRegionMake2D(x, y, w, w)
-                canvasTexture.replace(region: region, mipmapLevel: 0, withBytes: markerData, bytesPerRow: w*bytesPerPixel)
+                canvasTexture.replace(region: region, mipmapLevel: 0, withBytes: markerData, bytesPerRow: w * bytesPerPixel)
             }
         }
         markerData.deallocate()
@@ -536,7 +536,6 @@ extension Renderer: MTKViewDelegate {
     }
     
     func clearTexture(texture: MTLTexture, color: MTLClearColor, in view: MTKView) {
-        
         let renderPassDescriptor = MTLRenderPassDescriptor()
         renderPassDescriptor.colorAttachments[0].texture = texture
         renderPassDescriptor.colorAttachments[0].loadAction = .clear
