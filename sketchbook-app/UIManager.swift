@@ -41,36 +41,6 @@ class UIManager {
     var brushColor: Color
     //rendering glue
 
-    class GraphicalElement {
-        var toUpdate = false
-        var txIndex: UInt32
-        var position: Vec2
-        var size: Vec2
-        var color: Color
-        var g: (Int, TextureBox) -> ()
-        func createElement(_ box: TextureBox) -> BrushSample{
-            if toUpdate {
-                toUpdate = false
-                g(Int(txIndex), box)
-                withUnsafePointer(to: box.t[Int(txIndex)]) {
-                    print("createElement: \($0)")
-                }
-            }
-            
-            return BrushSample(position: position, size: size.x, color: color)
-        }
-        
-        init(p: Vec2, s: Vec2, c: Color = Color(), g: @escaping (Int, TextureBox) -> (),
-             ti: UInt32) {
-            position = p
-            size = s
-            color = c
-            self.g = g
-            
-            txIndex = ti
-        }
-    }
-
     var uiMap : [String: GraphicalElement] = [:]
 
     var renderer: Renderer!
@@ -79,29 +49,26 @@ class UIManager {
     init(w: Int, h: Int, r: Renderer) {
         txwidth = w
         txheight = h
-        buttonColor = defaultButtonColor
-        let hsv = itof(i: IntHSV(h: hue, s: 50, v: 50, a: 255))
-        let color = hsv2rgb(input: hsv)
-        brushColor = color
         renderer = r
-        
         initialized = true
         
+        buttonColor = defaultButtonColor
+        let hsv = itof(i: IntHSV(h: hue, s: 50, v: 50, a: 255))
+        brushColor = hsv2rgb(input: hsv)
+
         //create graphical elements and their backing texture
+        let td = MTLTextureDescriptor()
+        td.usage = [.shaderRead, .shaderWrite]
         //color picker
-        let textureDescriptor = MTLTextureDescriptor()
-        textureDescriptor.usage = [.shaderRead, .shaderWrite]
-        uiMap["colorPicker"] = createGE(pos: colorPickerLocation,
-                                           size: Vec2(Float(colorPickerDim)),
-                                           g: fillColorPicker,
-                                           td: textureDescriptor)
+        var size = Vec2(Float(colorPickerDim))
+        var ti = renderer.createTexture(td, size: size)
+        uiMap["colorPicker"] = ColorPicker(p: colorPickerLocation, s: size, h: hue, ti: ti)
 
         //color picker hue
+        size = Vec2(Float(widthHue), Float(heightHue))
+        ti = renderer.createTexture(td, size: size)
         let p = colorPickerLocation + colorPickerHueOffsetLocation
-        uiMap["colorPickerHue"] = createGE(pos: p,
-                                              size: Vec2(Float(widthHue), Float(heightHue)),
-                                              g: fillColorPickerHue,
-                                              td: textureDescriptor)
+        uiMap["colorPickerHue"] = ColorPickerHue(p: p, s: size, ti: ti)
 
         //new layer
         
@@ -113,12 +80,7 @@ class UIManager {
         
         //how to change colors of each marker?
     }
-    
-    func createGE(pos: Vec2, size: Vec2, g: @escaping (Int, TextureBox) -> (), td: MTLTextureDescriptor) -> GraphicalElement {
-        let ti = renderer.createTexture(td, size: size)//, size: size)
-        //TODO GE size not necessarily the same size as texture!! need 2 sizes
-        return GraphicalElement(p: pos, s: size, g: g, ti: UInt32(ti))
-    }
+
     
     func pressButton() {
         buttonColor = buttonActivatedColor
@@ -136,28 +98,6 @@ class UIManager {
         brushSize = newBrushSize
     }
     
-    func getDrawElements(_ textures: TextureBox) -> [BrushUniform]{
-        assert(initialized)
-
-        var uniformStagingBuffer: [BrushUniform] = []
-        for (_, ui) in uiMap {
-            let element = ui.createElement(textures)
-            uniformStagingBuffer.append(convert(sample: element, txIndex: ui.txIndex))
-        }
-        
-        //button for resizing brush
-        var element = createResizeBrushButton()
-        element.color = brushColor
-        uniformStagingBuffer.append(convert(sample: element))
-        
-        if buttonPressed {
-            element = createResizeBrush(brushSize: brushSize)
-            element.color = brushColor
-            uniformStagingBuffer.append(convert(sample: element))
-        }
-        return uniformStagingBuffer
-    }
-        
     func convert(sample: BrushSample, txIndex: uint = 0) -> BrushUniform {
         let p = Vec2(sample.position.x / Float(txwidth),
                      sample.position.y / Float(txheight))
@@ -171,83 +111,13 @@ class UIManager {
         let strokeSample = BrushUniform(position: p, size: s, color: c, txIndex: txIndex)
         return strokeSample
     }
-    
-    func fillColorPickerHue(i: Int, b: TextureBox) {
-        fillColorPickerHue(&b.t[i]!)
-    }
-    func fillColorPicker(i: Int, b: TextureBox) {
-        fillColorPicker(&b.t[i]!)
-    }
-    func fillColorPickerHue(_ texture: inout MTLTexture) {
 
-        let bytesPerPixel = 4
-        let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: widthHue * heightHue * bytesPerPixel)
-        for v in 0 ..< heightHue {
-            for h in 0 ..< widthHue {
-                let hsv = itof(i: IntHSV(h: h, s: 255, v: 255, a: 255))
-                let color = hsv2rgb(input: hsv)
-                let index = v * widthHue + h
-                //let index = h * heightHue + v
-                cpData[index * bytesPerPixel + 0] = color.r
-                cpData[index * bytesPerPixel + 1] = color.g
-                cpData[index * bytesPerPixel + 2] = color.b
-                cpData[index * bytesPerPixel + 3] = 255//color.a
-            }
+    func getElements(_ textureBox : TextureBox, _ buffer : inout [BrushUniform]) {
+        for (uiName, ge) in uiMap {
+            ge.fill(&textureBox.t[Int(ge.txIndex)]!)
+            let element = ge.getElement()
+            buffer.append(convert(sample: element, txIndex: uint(ge.txIndex)))
         }
-        let region = MTLRegionMake2D(0, 0, widthHue, heightHue)
-        texture.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: widthHue*bytesPerPixel)
-    }
-    
-    func createColorPickerHue(box: TextureBox) -> BrushSample {
-        if updateHueOnce {
-            fillColorPickerHue(&(box.t[2]!))
-        }
-        let element = BrushSample(position: colorPickerLocation+colorPickerHueOffsetLocation, size: 360, color: defaultButtonColor)
-        return element
-    }
-    func createColorPickerHue(tex: inout MTLTexture) -> BrushSample {
-        if updateHueOnce {
-            fillColorPickerHue(&tex)
-        }
-        
-        let element = BrushSample(position: colorPickerLocation+colorPickerHueOffsetLocation, size: 360, color: defaultButtonColor)
-        return element
-    }
-    
-    func fillColorPicker(_ tex: inout MTLTexture) {
-        updateHue = false
-
-        let bytesPerPixel = 4
-        let dim = colorPickerDim
-        let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: dim * dim * bytesPerPixel)
-        for s in 0 ... 255 {
-            for v in 0 ... 255 {
-                let hsv = itof(i: IntHSV(h: hue, s: s, v: v, a: 255))
-                let color = hsv2rgb(input: hsv)
-                let index = s * dim + v
-                cpData[index * bytesPerPixel + 0] = color.r
-                cpData[index * bytesPerPixel + 1] = color.g
-                cpData[index * bytesPerPixel + 2] = color.b
-                cpData[index * bytesPerPixel + 3] = 255//color.a
-            }
-        }
-        let region = MTLRegionMake2D(0, 0, dim, dim)
-        tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: dim*bytesPerPixel)
-    }
-    
-    func createColorPicker(box: TextureBox) -> BrushSample {
-        if updateHue {
-            fillColorPicker(&(box.t[1]!))
-        }
-        let element = BrushSample(position: colorPickerLocation, size: 256, color: defaultButtonColor)
-        return element
-    }
-    func createColorPicker(tex: inout MTLTexture) -> BrushSample {
-        if updateHue {
-            fillColorPicker(&tex)
-        }
-        let element = BrushSample(position: colorPickerLocation, size: 256, color: defaultButtonColor)
-        return element
     }
     
     func createResizeBrushButton() -> BrushSample {
@@ -317,6 +187,9 @@ class UIManager {
             origin.x += offset
             let sv = (pos - origin) / 2
             hue = Int(min(255.0, max(0.0, sv.x)))
+            var cp = uiMap["colorPicker"] as! ColorPicker
+            cp.hue = hue
+            cp.toUpdate = true
             let hsv = itof(i: IntHSV(h: hue, s: Int(sat), v: Int(val), a: 255))
             brushColor = hsv2rgb(input: hsv)
             print("pos: \(pos.x) origin: \(origin.x) sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")

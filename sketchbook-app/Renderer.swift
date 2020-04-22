@@ -67,7 +67,15 @@ struct BrushUniform {
 }
 
 class TextureBox {
+    static var _id : Int = 0
     var t: [MTLTexture?] = []//nil, nil, nil]
+    var id : Int
+    init() {
+        id = TextureBox._id
+        TextureBox._id += 1
+        t.reserveCapacity(8)
+    }
+    
 }
 
 class Renderer: NSObject {
@@ -268,6 +276,7 @@ class Renderer: NSObject {
         texdesc.width = Int(size.x)
         texdesc.height = Int(size.y)
         stampTextures.t.append(device.makeTexture(descriptor: texdesc))
+        print("stamptexures id: \(stampTextures.id)")
         return stampTextures.t.count - 1
     }
     func createTextures(device: MTLDevice) {
@@ -442,18 +451,10 @@ extension Renderer: MTKViewDelegate {
             
             drawCanvasInstanced(in: view)
             
-            //drawUI
-            //color picker
-            //var element = uiManager!.createColorPickerHue(tex: &colorPickerHueTexture)
-            var element = uiManager!.createColorPickerHue(box: stampTextures)
-            uniformStagingBuffer.append(convert(sample: element, txIndex: 2))
-            
-            //element = uiManager!.createColorPicker(tex: &colorPickerTexture)
-            element = uiManager!.createColorPicker(box: stampTextures)
-            uniformStagingBuffer.append(convert(sample: element, txIndex: 1))
-            
+            uiManager!.getElements(stampTextures, &uniformStagingBuffer)
+
             //button for resizing brush
-            element = uiManager!.createResizeBrushButton()
+            var element = uiManager!.createResizeBrushButton()
             element.color = standardBrush!.color
             uniformStagingBuffer.append(convert(sample: element))
             

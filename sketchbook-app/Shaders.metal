@@ -168,13 +168,3 @@ fragment half4 brush_fragment(vxout fin [[ stage_in ]],
     brush.a *= fin.color.a;
     return brush;
 }
-
-fragment half4 brush_fragment_depr(vxout_brush fin [[ stage_in ]],
-                              texture2d<half> tx [[ texture(0) ]],
-                              texture2d<half> brush [[ texture(1) ]])
-{
-    constexpr sampler txsampler;
-    half4 color = tx.sample(txsampler, fin.uv);
-    half4 brush_color = brush.sample(txsampler, fin.uv);
-    return color + brush_color;
-}

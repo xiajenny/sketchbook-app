@@ -135,7 +135,7 @@ class InputManager {
             
             if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
                 if let estimationUpdateIndex = firstTouch?.estimationUpdateIndex {
-                    updatedBrush.firstUpdateIndex = Int(estimationUpdateIndex)
+                    updatedBrush.firstUpdateIndex = Int(truncating: estimationUpdateIndex)
                 }
             }
             
@@ -147,19 +147,15 @@ class InputManager {
         if let predictedTouches = event!.predictedTouches(for: firstTouch!)
         {
             //print("predictedTouches:", predictedTouches.count)
-            
-            var firstOnce = first
             for predictedTouch in predictedTouches
             {
-                //let locationInView =  predictedTouch.location(in: view)
-                let pos = processTouchPosition(touch: predictedTouch, view: view)
+                //let pos = processTouchPosition(touch: predictedTouch, view: view)
                 //predictedBrush.append(pos: pos, force: Float(predictedTouch.force), first: firstOnce)
-                firstOnce = false
             }
         }
         
         //touches
-        var firstOnce = first
+        //var firstOnce = first
         for touch in touches {
             touchCount += 1
             if touchCount == filter {
@@ -168,8 +164,7 @@ class InputManager {
                 //continue
             }
             let pos = processTouchPosition(touch: touch, view: view)
-            //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce)
-            firstOnce = false
+            //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
             if touch.type == .pencil {
                 uim.currentPencilLoc = pos
             }
