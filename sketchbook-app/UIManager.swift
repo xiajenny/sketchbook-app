@@ -59,22 +59,22 @@ class UIManager {
     func fillColorPickerHue(tex: inout MTLTexture) {
         updateHueOnce = false
         
-        let bytesPerPixel = 4
-        let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: widthHue * heightHue * bytesPerPixel)
+        let bytesPerPixel = 8
+        let cpData = UnsafeMutablePointer<UInt16>.allocate(capacity: widthHue * heightHue * bytesPerPixel)
         for v in 0 ..< heightHue {
             for h in 0 ..< widthHue {
                 let hsv = itof(i: IntHSV(h: h, s: 255, v: 255, a: 255))
                 let color = hsv2rgb(input: hsv)
                 let index = v * widthHue + h
                 //let index = h * heightHue + v
-                cpData[index * bytesPerPixel + 0] = color.r
-                cpData[index * bytesPerPixel + 1] = color.g
-                cpData[index * bytesPerPixel + 2] = color.b
-                cpData[index * bytesPerPixel + 3] = 255//color.a
+                cpData[index * 4 + 0] = UInt16(color.r) * 256
+                cpData[index * 4 + 1] = UInt16(color.g) * 256
+                cpData[index * 4 + 2] = UInt16(color.b) * 256
+                cpData[index * 4 + 3] = 0xffff //color.a
             }
         }
         let region = MTLRegionMake2D(0, 0, widthHue, heightHue)
-        tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: widthHue*bytesPerPixel)
+        tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: widthHue * bytesPerPixel)
     }
     
     func createColorPickerHue(tex: inout MTLTexture) -> BrushSample {
@@ -89,22 +89,22 @@ class UIManager {
     func fillColorPicker(tex: inout MTLTexture) {
         updateHue = false
 
-        let bytesPerPixel = 4
+        let bytesPerPixel = 8
         let dim = colorPickerDim
-        let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: dim * dim * bytesPerPixel)
+        let cpData = UnsafeMutablePointer<UInt16>.allocate(capacity: dim * dim * bytesPerPixel)
         for s in 0 ... 255 {
             for v in 0 ... 255 {
                 let hsv = itof(i: IntHSV(h: hue, s: s, v: v, a: 255))
                 let color = hsv2rgb(input: hsv)
                 let index = s * dim + v
-                cpData[index * bytesPerPixel + 0] = color.r
-                cpData[index * bytesPerPixel + 1] = color.g
-                cpData[index * bytesPerPixel + 2] = color.b
-                cpData[index * bytesPerPixel + 3] = 255//color.a
+                cpData[index * 4 + 0] = UInt16(color.r) * 256
+                cpData[index * 4 + 1] = UInt16(color.g) * 256
+                cpData[index * 4 + 2] = UInt16(color.b) * 256
+                cpData[index * 4 + 3] = 0xffff //color.a
             }
         }
         let region = MTLRegionMake2D(0, 0, dim, dim)
-        tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: dim*bytesPerPixel)
+        tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: dim * bytesPerPixel)
     }
     
     func createColorPicker(tex: inout MTLTexture) -> BrushSample {

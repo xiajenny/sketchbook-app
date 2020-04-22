@@ -135,14 +135,14 @@ class InputManager {
             
             if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
                 if let estimationUpdateIndex = firstTouch?.estimationUpdateIndex {
-                    updatedBrush.firstUpdateIndex = Int(estimationUpdateIndex)
+                  updatedBrush.firstUpdateIndex = Int(truncating:estimationUpdateIndex)
                 }
             }
             
             //if first touch is in color picker, disable drawing, go to color pick mode
             uim.firstTouch(pos: pos)
         }
-        
+/*
         //predicted touch
         if let predictedTouches = event!.predictedTouches(for: firstTouch!)
         {
@@ -157,9 +157,9 @@ class InputManager {
                 firstOnce = false
             }
         }
-        
+*/
         //touches
-        var firstOnce = first
+//        var firstOnce = first
         for touch in touches {
             touchCount += 1
             if touchCount == filter {
@@ -169,7 +169,7 @@ class InputManager {
             }
             let pos = processTouchPosition(touch: touch, view: view)
             //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce)
-            firstOnce = false
+//            firstOnce = false
             if touch.type == .pencil {
                 uim.currentPencilLoc = pos
             }
