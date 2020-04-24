@@ -9,7 +9,7 @@
 import Foundation
 //input sample
 struct BrushSample {
-    var position: Vec2 = Vec2(x: 40, y: 40)
+    var position: Vec2 = Vec2(40, 40)
     var force: Float = 1
     var first: Bool = true
     var size: Float = 16

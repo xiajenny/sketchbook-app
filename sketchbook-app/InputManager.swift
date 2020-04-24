@@ -58,7 +58,7 @@ class InputManager {
         let bounds = view.bounds.size
         let x = 2 * Float(t.x) / Float(bounds.width) * txw - txw
         let y = 2 * Float(t.y) / Float(bounds.height) * txh - txh
-        let pos: Vec2 = Vec2(x: x,y: y)
+        let pos: Vec2 = Vec2(x,y)
         //let liv = touch.location(in: view)
         //print("processTouchPosition: \(pos), locInView: \(liv)")
         return pos
@@ -111,7 +111,7 @@ class InputManager {
         //button hit eval
         if let touch = touches.first, touch.type == .direct {
             
-            let target = Vec2(x: 0, y: -2000)
+            let target = Vec2(0, -2000)//brush size button location
             let pos = processTouchPosition(touch: touch, view: view)
             let hit = v_len(a: target - pos) < 140.0
             //print("dist: \(v_len(a: target - pos))")
@@ -135,7 +135,7 @@ class InputManager {
             
             if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
                 if let estimationUpdateIndex = firstTouch?.estimationUpdateIndex {
-                  updatedBrush.firstUpdateIndex = Int(truncating:estimationUpdateIndex)
+                    updatedBrush.firstUpdateIndex = Int(truncating: estimationUpdateIndex)
                 }
             }
             
@@ -147,19 +147,15 @@ class InputManager {
         if let predictedTouches = event!.predictedTouches(for: firstTouch!)
         {
             //print("predictedTouches:", predictedTouches.count)
-            
-            var firstOnce = first
             for predictedTouch in predictedTouches
             {
-                //let locationInView =  predictedTouch.location(in: view)
-                let pos = processTouchPosition(touch: predictedTouch, view: view)
+                //let pos = processTouchPosition(touch: predictedTouch, view: view)
                 //predictedBrush.append(pos: pos, force: Float(predictedTouch.force), first: firstOnce)
-                firstOnce = false
             }
         }
 */
         //touches
-//        var firstOnce = first
+        //var firstOnce = first
         for touch in touches {
             touchCount += 1
             if touchCount == filter {
@@ -168,8 +164,7 @@ class InputManager {
                 //continue
             }
             let pos = processTouchPosition(touch: touch, view: view)
-            //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce)
-//            firstOnce = false
+            //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
             if touch.type == .pencil {
                 uim.currentPencilLoc = pos
             }

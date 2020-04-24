@@ -27,8 +27,8 @@ class ViewController: UIViewController {
         mtkView.depthStencilPixelFormat = .depth32Float
         
         //from modern-metal renderer = Renderer(view: mtkView, device: device)
-        uiManager = UIManager()
         renderer = Renderer(d: device, with: mtkView)
+        uiManager = UIManager(w: renderer.txwidth, h: renderer.txheight, r: renderer)
         inputManager = InputManager(w: renderer.txwidth, h: renderer.txheight, u: uiManager, v: mtkView)
         renderer.init2(u: uiManager, i: inputManager)
         
