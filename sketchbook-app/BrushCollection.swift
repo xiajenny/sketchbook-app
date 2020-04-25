@@ -14,7 +14,7 @@ struct BrushSample {
     var first: Bool = true
     var size: Float = 16
     var alpha: Float = 1.0
-    var color = Color(r: 255,g: 10,b: 255,a:100)
+    var color = Color(255,10,255,100)
 }
 
 extension BrushSample: CustomStringConvertible {
@@ -28,7 +28,7 @@ class Brush {
     var size: Float = defaultBrushSize
     var sampleBuffer: [BrushSample] = []
     //var strokeBuffer: [BrushUniform] = []
-    var color = Color(r: 10,g: 10,b: 80,a:155)
+    var color = Color(10,10,80,155)
     var prevSample = BrushSample()
     var touchEnded: Bool = true
     var firstUpdateIndex: Int = 0

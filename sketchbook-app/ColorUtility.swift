@@ -13,6 +13,18 @@ struct Color {
     var g : UInt8 = 0
     var b : UInt8 = 0
     var a : UInt8 = 0
+    init() {
+        r = 0
+        g = 0
+        b = 0
+        a = 0
+    }
+    init(_ r: UInt8, _ g: UInt8, _ b: UInt8, _ a: UInt8) {
+        self.r = r
+        self.g = g
+        self.b = b
+        self.a = a
+    }
 }
 
 struct FloatRGB {

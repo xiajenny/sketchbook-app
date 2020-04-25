@@ -39,13 +39,13 @@ class InputManager {
         
         defaultBrush = Brush(n: "defaultBrush", w: txwidth, h: txheight)
         defaultBrush.size = 32
-        defaultBrush.color = Color(r: 255, g: 0, b: 0,a:255)
+        defaultBrush.color = Color(255, 255, 255, 30)
         updatedBrush = Brush(n: "updatedBrush", w: txwidth, h: txheight)
         updatedBrush.size = 16
-        updatedBrush.color = Color(r: 0, g: 255, b: 0,a:255)
+        updatedBrush.color = Color(0, 255, 0,255)
         predictedBrush = Brush(n: "predictedBrush", w: txwidth, h: txheight)
         predictedBrush.size = 40
-        predictedBrush.color = Color(r: 0, g: 0, b: 255,a:255)
+        predictedBrush.color = Color(0, 0, 255,255)
         
         replayBrushBuffer.reserveCapacity(maxTouch)
     }
@@ -59,8 +59,6 @@ class InputManager {
         let x = 2 * Float(t.x) / Float(bounds.width) * txw - txw
         let y = 2 * Float(t.y) / Float(bounds.height) * txh - txh
         let pos: Vec2 = Vec2(x,y)
-        //let liv = touch.location(in: view)
-        //print("processTouchPosition: \(pos), locInView: \(liv)")
         return pos
     }
     
@@ -89,7 +87,7 @@ class InputManager {
             }
             let count = updatedBrush.sampleBuffer.count
             if count > 0 {
-                print ("inputManager: brush samples: \(count)")
+                //print ("inputManager: brush samples: \(count)")
             }
             //print("updated force: \(touch.force)")
         }
@@ -111,7 +109,7 @@ class InputManager {
         //button hit eval
         if let touch = touches.first, touch.type == .direct {
             
-            let target = Vec2(0, -2000)//brush size button location
+            let target = uim.resizeButtonLocation
             let pos = processTouchPosition(touch: touch, view: view)
             let hit = v_len(a: target - pos) < 140.0
             //print("dist: \(v_len(a: target - pos))")
@@ -140,7 +138,7 @@ class InputManager {
             }
             
             //if first touch is in color picker, disable drawing, go to color pick mode
-            uim.firstTouch(pos: pos)
+            uim.firstTouch(pos: pos, pencil: firstTouch!.type == .pencil)
         }
 /*
         //predicted touch
@@ -155,7 +153,7 @@ class InputManager {
         }
 */
         //touches
-        //var firstOnce = first
+        var firstOnce = first
         for touch in touches {
             touchCount += 1
             if touchCount == filter {
@@ -164,12 +162,12 @@ class InputManager {
                 //continue
             }
             let pos = processTouchPosition(touch: touch, view: view)
-            //defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
+            defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
             if touch.type == .pencil {
                 uim.currentPencilLoc = pos
             }
             
-            updatedBrush.color = uim.colorPick(pos: pos)
+            updatedBrush.color = uim.processTouch(pos: pos)
             
             if enableReplay == true {
                 guard let brush = defaultBrush.sampleBuffer.last else { return }

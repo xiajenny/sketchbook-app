@@ -62,12 +62,6 @@ class ViewController: UIViewController {
         //mtkView.isPaused = true;
     }
     override func touchesEstimatedPropertiesUpdated(_ touches: Set<UITouch>) {
-        for touch in touches {
-            guard let index = touch.estimationUpdateIndex else { // TODO: silence this warning
-                continue
-            }
-            //print ("update index: \(index) force: \(touch.force)")
-        }
         inputManager.updateTouch(touches: touches)
     }
     

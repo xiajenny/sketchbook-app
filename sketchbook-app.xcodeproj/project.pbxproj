@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3B25B0A0245011E70073DE06 /* Vector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B25B09F245011E70073DE06 /* Vector.swift */; };
 		3B6447C6244FD3A000A02873 /* GraphicalElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6447C5244FD3A000A02873 /* GraphicalElement.swift */; };
 		3B83EB33243D208F00C7358F /* ColorUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B83EB32243D208F00C7358F /* ColorUtility.swift */; };
 		3BA3B4B9243FB4AB00EB1514 /* UIManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BA3B4B8243FB4AB00EB1514 /* UIManager.swift */; };
@@ -22,6 +23,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3B25B09F245011E70073DE06 /* Vector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vector.swift; sourceTree = "<group>"; };
 		3B6447C5244FD3A000A02873 /* GraphicalElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphicalElement.swift; sourceTree = "<group>"; };
 		3B83EB32243D208F00C7358F /* ColorUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorUtility.swift; sourceTree = "<group>"; };
 		3BA3B4B8243FB4AB00EB1514 /* UIManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIManager.swift; sourceTree = "<group>"; };
@@ -78,6 +80,7 @@
 				3B6447C5244FD3A000A02873 /* GraphicalElement.swift */,
 				3BA3B4BA244784E300EB1514 /* BrushCollection.swift */,
 				3B83EB32243D208F00C7358F /* ColorUtility.swift */,
+				3B25B09F245011E70073DE06 /* Vector.swift */,
 				83697CDC20F4E96400B4C2A6 /* Main.storyboard */,
 				83697CE120F4E96500B4C2A6 /* LaunchScreen.storyboard */,
 				83EDDBE420FEE4BE006CE50F /* Assets.xcassets */,
@@ -161,6 +164,7 @@
 			files = (
 				3BA3B4BB244784E400EB1514 /* BrushCollection.swift in Sources */,
 				3B83EB33243D208F00C7358F /* ColorUtility.swift in Sources */,
+				3B25B0A0245011E70073DE06 /* Vector.swift in Sources */,
 				3BA3B4BD2447877F00EB1514 /* InputManager.swift in Sources */,
 				83697CDB20F4E96400B4C2A6 /* ViewController.swift in Sources */,
 				3BA3B4B9243FB4AB00EB1514 /* UIManager.swift in Sources */,
@@ -319,7 +323,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app1";
 				PRODUCT_NAME = "sketchbook-app";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -338,7 +342,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app1";
 				PRODUCT_NAME = "sketchbook-app";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

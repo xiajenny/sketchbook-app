@@ -10,19 +10,27 @@ import Foundation
 import MetalKit
 
 class GraphicalElement {
+    var name = "graphical element"
+    var tag = "default"
     var toUpdate = true
     var txIndex: Int
     var position: Vec2
     var size: Vec2 //ui size
     var txSize: Vec2 //texture size
     var color: Color
-    func createElement(_ box: TextureBox) -> BrushSample{
 
-        return BrushSample(position: position, size: size.x, color: color)
-    }
-    
     func fill(_ tex: inout MTLTexture) {
         fatalError("must override fill")
+    }
+    
+    func isOver(_ pos: Vec2) -> Bool {
+        //TODO assume rectangular hit target, but should do circles or others depending on the class
+        let left = position.x - size.x
+        let right = position.x + size.x
+        let top = position.y + size.y
+        let bottom = position.y - size.y
+        
+        return left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
     }
     
     func getElement() -> BrushSample {
@@ -38,13 +46,33 @@ class GraphicalElement {
         txIndex = ti
         print("GraphicalElement.init txIndex: \(txIndex)")
     }
+
+    init(p: Vec2, s: Vec2, ts: Vec2, c: Color = Color(), ti: Int) {
+        position = p
+        size = s
+        txSize = ts
+        color = c
+        color.a = 0xff
+        txIndex = ti
+        print("GraphicalElement.init txIndex: \(txIndex)")
+    }
+}
+
+class ColorSlot : GraphicalElement {
+    var hsvColor = FloatHSV()
+    //init(p: Vec2, s: Vec2, c: Color, ti: Int) {
+    //    super.init(p: p, s: s, c: c, ti: ti)
+    //}
+    override func fill(_ tex: inout MTLTexture) {
+        return
+    }
 }
 
 class ColorPicker : GraphicalElement {
     var hue : Int
-    init(p: Vec2, s: Vec2, h: Int, ti: Int) {
+    init(p: Vec2, s: Vec2, ts: Vec2, h: Int, ti: Int) {
         hue = h
-        super.init(p: p, s: s, ti: ti)
+        super.init(p: p, s: s, ts: ts, ti: ti)
     }
     
     override func fill(_ tex: inout MTLTexture) {
@@ -54,7 +82,7 @@ class ColorPicker : GraphicalElement {
             return
         }
         let bytesPerPixel = 4
-        let dim = Int(size.x)
+        let dim = Int(txSize.x)
         let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: dim * dim * bytesPerPixel)
         for s in 0 ... 255 {
             for v in 0 ... 255 {
@@ -81,8 +109,8 @@ class ColorPickerHue : GraphicalElement {
         }
         
         let bytesPerPixel = 4
-        let width = Int(size.x)
-        let height = Int(size.y)
+        let width = Int(txSize.x)
+        let height = Int(txSize.y)
         let cpData = UnsafeMutablePointer<UInt8>.allocate(capacity: width * height * bytesPerPixel)
 
         for v in 0 ..< height {
@@ -99,5 +127,39 @@ class ColorPickerHue : GraphicalElement {
         }
         let region = MTLRegionMake2D(0, 0, width, height)
         texture.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: width*bytesPerPixel)
+    }
+}
+
+class CircleBrush : GraphicalElement {
+    override func fill(_ texture: inout MTLTexture) {
+        if toUpdate {
+            toUpdate = false
+        } else {
+            return
+        }
+        
+        //fillBrush(color: Color(40, 40, 200,255))
+        let bytesPerPixel = 8
+        let kw = Int(defaultBrushSize)
+        let kernelSize = kw * kw * 4
+        let brushData = UnsafeMutablePointer<UInt16>.allocate(capacity: kernelSize)
+        let center = ivec2(kw/2, kw/2)
+        for x in 0 ..< kw {
+            for y in 0 ..< kw {
+                let i = (y * kw + x) * 4 //4 is num components per pixel
+                //if distance from center is more than brush radius, 0 alpha
+                brushData[i + 0] = UInt16(color.r) * 256
+                brushData[i + 1] = UInt16(color.g) * 256
+                brushData[i + 2] = UInt16(color.b) * 256
+                if pow(Decimal(x - center.x), 2) + pow(Decimal(y - center.y), 2) < pow(Decimal(kw / 2), 2) {
+                    brushData[i + 3] = 0xffff
+                } else {
+                    brushData[i + 3] = 0
+                }
+            }
+        }
+        let region = MTLRegionMake2D(0, 0, kw, kw)
+        texture.replace(region: region, mipmapLevel: 0, withBytes: brushData, bytesPerRow: kw * bytesPerPixel)
+        brushData.deallocate()
     }
 }
