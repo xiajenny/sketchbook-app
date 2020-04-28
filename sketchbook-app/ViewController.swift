@@ -38,10 +38,10 @@ class ViewController: UIViewController {
     
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let touchCount = touches.count
+        //let touchCount = touches.count
         let touch = touches.first
-        let t = touch!.preciseLocation(in: view)
-        print("\(touchCount) touches started \(t.x) \(t.y)")
+        //let t = touch!.preciseLocation(in: view)
+        //print("\(touchCount) touches started \(t.x) \(t.y)")
         mtkView.isPaused = false;
         inputManager.didTouch(touches: touches, with: event, first: true)
     }
@@ -53,10 +53,10 @@ class ViewController: UIViewController {
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         inputManager.didTouch(touches: touches, with: event, last: true)
         
-        let touchCount = touches.count
+        //let touchCount = touches.count
         let touch = touches.first
-        let t = touch!.preciseLocation(in: view)
-        print("\(touchCount) touches ended \(t.x) \(t.y)")
+        //let t = touch!.preciseLocation(in: view)
+        //print("\(touchCount) touches ended \(t.x) \(t.y)")
         inputManager.defaultBrush.touchEnded = true
         //view paused in renderer.drawFrame
         //mtkView.isPaused = true;

@@ -83,7 +83,7 @@ class InputManager {
             let first = updatedBrush.firstUpdateIndex == Int(truncating: index)
             updatedBrush.append(pos: pos, force: Float(touch.force), first: first)
             if first {
-                print("first update: \(pos)")
+                //print("first update: \(pos)")
             }
             let count = updatedBrush.sampleBuffer.count
             if count > 0 {
@@ -117,7 +117,9 @@ class InputManager {
                 uim.pressButton()
             }
             if last {
+                print("release button")
                 uim.releaseButton()
+                //TODO need to initialize uim new brush size? or only do this if brush resize was pressed??
                 updatedBrush.size = uim.newBrushSize
             }
         }

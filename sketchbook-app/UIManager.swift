@@ -17,6 +17,7 @@ class UIManager {
     let buttonActivatedColor = Color(40,40,100, 255)
     var buttonColor: Color
     
+    var dontDraw = true
     var buttonPressed = false
     var colorPickMode = false
     var colorPickHueMode = false
@@ -25,7 +26,7 @@ class UIManager {
     var colorPickerDim = 500
     var firstPencilLoc = Vec2()
     var currentPencilLoc = Vec2()
-    var newBrushSize: Float = 256
+    var newBrushSize: Float = 16
     var brushSize: Float = 256
     var buttonLoc = Vec2(0, -800)
     
@@ -81,6 +82,7 @@ class UIManager {
         color = Color(200, 200, 200, 255)
         uiArray.append(ColorSlot(p: pos, s: size, c: color, ti: ti))
         uiMap["activeColorSlotIndicator"] = uiArray.last
+        uiArray.last!.hitable = false
         
         size = Vec2(100)
         color = Color(43, 43, 43, 255)
@@ -102,6 +104,7 @@ class UIManager {
         ti = renderer.createTexture(td, size: txSize)
         uiArray.append(ColorPicker(p: colorPickerLocation, s: size, ts: txSize, h: hue, ti: ti))
         uiMap["colorPicker"] = uiArray.last
+        uiArray.last!.name = "colorPicker"
 
         //color picker hue
         size = Vec2(Float(widthHue))
@@ -110,6 +113,7 @@ class UIManager {
         pos = colorPickerLocation + colorPickerHueOffsetLocation
         uiArray.append(ColorPickerHue(p: pos, s: txSize, ts: txSize, ti: ti))
         uiMap["colorPickerHue"] = uiArray.last
+        uiArray.last!.name = "colorPickerHue"
 
         //new layer
         
@@ -144,6 +148,7 @@ class UIManager {
     func releaseButton() {
         buttonColor = defaultButtonColor
         buttonPressed = false
+        dontDraw = false
     }
     
     func confirmBrushSize() {
@@ -178,7 +183,7 @@ class UIManager {
     
     func createResizeBrush(brushSize: Float) -> BrushSample {
         let dist = distTravelledFromButton()
-        print("dist \(dist)")
+        //print("dist \(dist)")
         newBrushSize = brushSize + dist / 2
         
         let element = BrushSample(position: buttonLoc, size: newBrushSize, color: defaultButtonColor)
@@ -213,8 +218,13 @@ class UIManager {
             if let colorSlot = ge as? ColorSlot {
                 let hit = colorSlot.isOver(pos)
                 if hit {
-                    print("\(ge.name) hit")
+                    //print("\(ge.name) hit")
+                    dontDraw = true
+                    //DEBUG HACK HACK HACK
+                    //this is to stop bug where active slot indicator is drawn to the canvas but I don't know why, but stopping any writes to canvas during this frame will fix the issue
+                    renderer.uniformStagingBuffer.removeAll(keepingCapacity: true)
                     uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
+                    print("uimap size: \(uiMap.count) acsi: \(uiMap["activeColorSlotIndicator"]!.position)")
                     //TODO indicator behavior is wrong
                     if pencil {
                         activeColorSlot = colorSlot
@@ -224,7 +234,9 @@ class UIManager {
                         val = Int(colorSlot.hsvColor.v)
                     } else {
                         //take colorSlot, multiply by .1, add current color *.9
-                        activeColorSlot.hsvColor = lerp(activeColorSlot.hsvColor, colorSlot.hsvColor, 0.9)
+                        let newColor = lerp(activeColorSlot.hsvColor, colorSlot.hsvColor, 0.9)
+                        print ("\(ge.name) curr: \(activeColorSlot.hsvColor.h) target: \(colorSlot.hsvColor.h) out: \(newColor.h)")
+                        activeColorSlot.hsvColor = newColor
                         hue = Int(activeColorSlot.hsvColor.h)
                         sat = Int(activeColorSlot.hsvColor.s)
                         val = Int(activeColorSlot.hsvColor.v)
@@ -234,6 +246,7 @@ class UIManager {
                     let cp = uiMap["colorPicker"] as! ColorPicker
                     cp.hue = hue
                     cp.toUpdate = true
+                    break
                 }
             }
         }

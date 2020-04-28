@@ -215,7 +215,7 @@ class Renderer: NSObject {
                                         length: MemoryLayout<UInt16>.size * indices.count,
                                         options: [])
         uniformStrokeBuffer = device.makeBuffer(length: 3000 * MemoryLayout<BrushUniform>.stride)
-        uniformUIBuffer = device.makeBuffer(length: 300 * MemoryLayout<BrushUniform>.stride)
+        uniformUIBuffer = device.makeBuffer(length: 3000 * MemoryLayout<BrushUniform>.stride)
         uniformCPBuffer = device.makeBuffer(length: 30 * MemoryLayout<BrushUniform>.stride)
     }
     
@@ -330,9 +330,6 @@ class Renderer: NSObject {
         }
         markerData.deallocate()
     }
-}
-
-extension Renderer: MTKViewDelegate {
 
     func convert(sample: BrushSample, txIndex: uint = 0) -> BrushUniform {
         let p = Vec2(sample.position.x / Float(txwidth),
@@ -346,14 +343,6 @@ extension Renderer: MTKViewDelegate {
         //print("convert color: \(c)")
         let strokeSample = BrushUniform(position: p, size: s, color: c, txIndex: txIndex)
         return strokeSample
-    }
-    
-    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        let clearColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 1.0)
-        clearTexture(texture: canvasTexture, color: clearColor, in: view)
-        for t in uiTextures {
-            clearTexture(texture: t!, color: clearColor, in: view)
-        }
     }
     
     /* Primary draw function per frame
@@ -406,19 +395,17 @@ extension Renderer: MTKViewDelegate {
 
             //draw UI
             //note: UI texture implicitly cleared by rdpUI
-            drawStroke(stamps: stampTextures.t, instanceBuffer: uniformStagingBufferUI, uniformBuffer: uniformStrokeBuffer, rdp: rdpUI, in: view)
+            drawStroke(stamps: stampTextures.t, instanceBuffer: uniformStagingBufferUI, uniformBuffer: uniformUIBuffer, rdp: rdpUI, in: view)
             uniformStagingBufferUI.removeAll(keepingCapacity: true)
         }
         drawFrame(in: view)
     }
         
     func drawCanvasInstanced(in view: MTKView) {
-        //prepareStroke(in: view, brush: &(standardBrush)!)
         prepareStroke(in: view, brush: &(inputManager!.updatedBrush))
         //NOTE when enabling defaultBrush, brush resize icon will randomly be rendered to canvas
         //prepareStroke(in: view, brush: &(inputManager!.defaultBrush))
         //prepareStroke(in: view, brush: &(inputManager!.predictedBrush))
-        //prepareStroke(in: view, brush: &predictedBrush)
         if !uniformStagingBuffer.isEmpty {
             drawStroke(stamps: stampTextures.t, instanceBuffer: uniformStagingBuffer, uniformBuffer: uniformStrokeBuffer, rdp: rdpCanvas, in: view, updateFence: true)
             uniformStagingBuffer.removeAll(keepingCapacity: true)
@@ -455,7 +442,7 @@ extension Renderer: MTKViewDelegate {
         let df: Float = (next.force - current.force) / Float(n + 1)
         //print("force: \(c.force) df: \(df) ")
         
-        let numpix = Int(pow(current.size, 2)) * n
+        //let numpix = Int(pow(current.size, 2)) * n
         //print("n: \(n), pix/frame: \(numpix)")
         for _ in 0 ..< n {
             if uniformStagingBuffer.count == 3000 {
@@ -561,6 +548,8 @@ extension Renderer: MTKViewDelegate {
     
     func drawStroke(stamps: [MTLTexture?], instanceBuffer: [BrushUniform], uniformBuffer: MTLBuffer, rdp: MTLRenderPassDescriptor, in view: MTKView, updateFence: Bool = false) {
 
+        //TODO random triangles might show up if buffer not big enough
+        //add assertion that buffer is big enough?
         let uniformBuffer_ptr = uniformBuffer.contents()//.assumingMemoryBound(to: Float.self)
         memcpy(uniformBuffer_ptr, instanceBuffer, instanceBuffer.count * MemoryLayout<BrushUniform>.stride)
 
@@ -583,3 +572,14 @@ extension Renderer: MTKViewDelegate {
     }
 }
 
+
+extension Renderer: MTKViewDelegate {
+    
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+        let clearColor = MTLClearColorMake(200/255.0, 40/255.0, 40/255.0, 1.0)
+        clearTexture(texture: canvasTexture, color: clearColor, in: view)
+        for t in uiTextures {
+            clearTexture(texture: t!, color: clearColor, in: view)
+        }
+    }
+}

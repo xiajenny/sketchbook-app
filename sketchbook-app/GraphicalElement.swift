@@ -12,6 +12,7 @@ import MetalKit
 class GraphicalElement {
     var name = "graphical element"
     var tag = "default"
+    var hitable = true
     var toUpdate = true
     var txIndex: Int
     var position: Vec2
@@ -30,7 +31,7 @@ class GraphicalElement {
         let top = position.y + size.y
         let bottom = position.y - size.y
         
-        return left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
+        return hitable && left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
     }
     
     func getElement() -> BrushSample {
