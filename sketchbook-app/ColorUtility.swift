@@ -34,11 +34,24 @@ struct FloatRGB {
     var a : Float = 1
 }
 
+//h 360, sva 1
 struct FloatHSV {
     var h : Float = 0
     var s : Float = 0
     var v : Float = 0
     var a : Float = 1
+    init(_ h: Float, _ s: Float, _ v: Float, _ a: Float) {
+        self.h = h
+        self.s = s
+        self.v = v
+        self.a = a
+    }
+    init() {
+        h = 0
+        s = 0
+        v = 0
+        a = 0
+    }
 }
 
 struct IntHSV {

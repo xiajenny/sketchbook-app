@@ -36,12 +36,10 @@ class UIManager {
     
     var activeColorSlot : ColorSlot
     
-    var hue = 300
-    var sat = 255
-    var val = 255
     let widthHue = 360
     let heightHue = 2
     var brushColor: Color
+    var hsv = FloatHSV (200, 1, 1, 1)
     //rendering glue
 
     var uiMap : [String: GraphicalElement] = [:]
@@ -57,7 +55,7 @@ class UIManager {
         initialized = true
         
         buttonColor = defaultButtonColor
-        let hsv = itof(i: IntHSV(h: hue, s: 50, v: 50, a: 255))
+        //let hsv = itof(i: IntHSV(h: hue, s: 50, v: 50, a: 255))
         brushColor = hsv2rgb(input: hsv)
 
         //create graphical elements and their backing texture
@@ -102,7 +100,7 @@ class UIManager {
         size = Vec2(Float(colorPickerDim))
         var txSize = Vec2(Float(256))
         ti = renderer.createTexture(td, size: txSize)
-        uiArray.append(ColorPicker(p: colorPickerLocation, s: size, ts: txSize, h: hue, ti: ti))
+        uiArray.append(ColorPicker(p: colorPickerLocation, s: size, ts: txSize, h: Int(hsv.h), ti: ti))
         uiMap["colorPicker"] = uiArray.last
         uiArray.last!.name = "colorPicker"
 
@@ -226,24 +224,18 @@ class UIManager {
                         uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
                         activeColorSlot = colorSlot
                         brushColor = colorSlot.color
-                        hue = Int(colorSlot.hsvColor.h)
-                        sat = Int(colorSlot.hsvColor.s * 255)
-                        val = Int(colorSlot.hsvColor.v * 255)
-                        print("pencil: \(sat)")
+                        hsv = colorSlot.hsvColor
                     } else {
                         //take colorSlot, multiply by .1, add current color *.9
                         let newColor = lerp(activeColorSlot.hsvColor, colorSlot.hsvColor, 0.9)
                         print ("\(ge.name) curr: \(activeColorSlot.hsvColor.h) target: \(colorSlot.hsvColor.h) out: \(newColor.h)")
                         activeColorSlot.hsvColor = newColor
-                        hue = Int(activeColorSlot.hsvColor.h)
-                        sat = Int(activeColorSlot.hsvColor.s)
-                        val = Int(activeColorSlot.hsvColor.v)
+                        hsv = activeColorSlot.hsvColor
                         brushColor = hsv2rgb(input: activeColorSlot.hsvColor)
                         activeColorSlot.color = brushColor
-                        print("touch: \(sat)")
                     }
                     let cp = uiMap["colorPicker"] as! ColorPicker
-                    cp.hue = hue
+                    cp.hue = Int(hsv.h)
                     cp.toUpdate = true
                     break
                 }
@@ -288,9 +280,9 @@ class UIManager {
             origin.x += dim
             origin.y += dim
             let sv = (origin - pos)/2
-            sat = Int(min(255, max(0.0, (dim - sv.y) * 255 / dim)))
-            val = Int(min(255, max(0, (dim - sv.x) * 255 / dim)))
-            print("sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
+            hsv.s = min(1, max(0.0, (dim - sv.y) / dim))
+            hsv.v = min(1, max(0, (dim - sv.x) / dim))
+            print("sv: \(sv) hsv: \(hsv)")
         }
         
         if colorPickHueMode {
@@ -298,15 +290,14 @@ class UIManager {
             var origin = colorPickerLocation
             origin.x += dim
             let sv = (pos - origin) / 2
-            hue = Int(min(255, max(0.0, sv.x * 255 / dim)))
+            hsv.h = min(360, max(0.0, sv.x * 255 / dim))
             let cp = uiMap["colorPicker"] as! ColorPicker
-            cp.hue = hue
+            cp.hue = Int(hsv.h)
             cp.toUpdate = true
-            print("colorpick hue pos: \(pos.x) origin: \(origin.x) sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
+            print("colorpick hue pos: \(pos.x) origin: \(origin.x) sv: \(sv) hsv: \(hsv)")
         }
         
         if colorPickHueMode || colorPickMode {
-            let hsv = itof(i: IntHSV(h: hue, s: Int(sat), v: Int(val), a: 255))
             brushColor = hsv2rgb(input: hsv)
             print("\(brushColor)")
             setSelectedColor(brushColor)
