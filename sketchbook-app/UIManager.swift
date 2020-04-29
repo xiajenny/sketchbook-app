@@ -218,20 +218,18 @@ class UIManager {
             if let colorSlot = ge as? ColorSlot {
                 let hit = colorSlot.isOver(pos)
                 if hit {
-                    //print("\(ge.name) hit")
+                    print("\(ge.name) hit")
                     dontDraw = true
-                    //DEBUG HACK HACK HACK
-                    //this is to stop bug where active slot indicator is drawn to the canvas but I don't know why, but stopping any writes to canvas during this frame will fix the issue
-                    renderer.uniformStagingBuffer.removeAll(keepingCapacity: true)
-                    uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
-                    print("uimap size: \(uiMap.count) acsi: \(uiMap["activeColorSlotIndicator"]!.position)")
+                    //print("uimap size: \(uiMap.count) acsi: \(uiMap["activeColorSlotIndicator"]!.position)")
                     //TODO indicator behavior is wrong
                     if pencil {
+                        uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
                         activeColorSlot = colorSlot
                         brushColor = colorSlot.color
                         hue = Int(colorSlot.hsvColor.h)
-                        sat = Int(colorSlot.hsvColor.s)
-                        val = Int(colorSlot.hsvColor.v)
+                        sat = Int(colorSlot.hsvColor.s * 255)
+                        val = Int(colorSlot.hsvColor.v * 255)
+                        print("pencil: \(sat)")
                     } else {
                         //take colorSlot, multiply by .1, add current color *.9
                         let newColor = lerp(activeColorSlot.hsvColor, colorSlot.hsvColor, 0.9)
@@ -242,6 +240,7 @@ class UIManager {
                         val = Int(activeColorSlot.hsvColor.v)
                         brushColor = hsv2rgb(input: activeColorSlot.hsvColor)
                         activeColorSlot.color = brushColor
+                        print("touch: \(sat)")
                     }
                     let cp = uiMap["colorPicker"] as! ColorPicker
                     cp.hue = hue
@@ -254,6 +253,7 @@ class UIManager {
     
     func lerp(_ a: FloatHSV, _ b: FloatHSV, _ f: Float) -> FloatHSV {
         var ret = FloatHSV()
+        //find shortest direction to lerp
         let normalLerp = abs(a.h - b.h) < 180
         if normalLerp {
             ret.h = lerp(a.h, b.h, f)
@@ -302,15 +302,17 @@ class UIManager {
             let cp = uiMap["colorPicker"] as! ColorPicker
             cp.hue = hue
             cp.toUpdate = true
-            print("pos: \(pos.x) origin: \(origin.x) sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
+            print("colorpick hue pos: \(pos.x) origin: \(origin.x) sv: \(sv) hue: \(hue) s: \(sat) v: \(val)")
         }
         
         if colorPickHueMode || colorPickMode {
             let hsv = itof(i: IntHSV(h: hue, s: Int(sat), v: Int(val), a: 255))
             brushColor = hsv2rgb(input: hsv)
+            print("\(brushColor)")
             setSelectedColor(brushColor)
             activeColorSlot.color = brushColor
             activeColorSlot.hsvColor = hsv
+            print("processTouch: \(hsv.s)")
         }
         
         return brushColor
