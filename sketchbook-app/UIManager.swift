@@ -254,7 +254,19 @@ class UIManager {
     
     func lerp(_ a: FloatHSV, _ b: FloatHSV, _ f: Float) -> FloatHSV {
         var ret = FloatHSV()
-        ret.h = lerp(a.h, b.h, f)
+        let normalLerp = abs(a.h - b.h) < 180
+        if normalLerp {
+            ret.h = lerp(a.h, b.h, f)
+        } else {
+            if a.h > b.h {
+                ret.h = lerp(a.h, b.h+360, f)
+            } else {
+                ret.h = lerp(a.h+360, b.h, f)
+            }
+            if ret.h > 360 {
+                ret.h -= 360
+            }
+        }
         ret.s = lerp(a.s, b.s, f)
         ret.v = lerp(a.v, b.v, f)
         return ret
