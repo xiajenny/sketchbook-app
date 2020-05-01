@@ -18,10 +18,8 @@ class InputManager {
     var view: MTKView!
     var uim: UIManager
     
-    var defaultBrush: Brush
-    var updatedBrush: Brush
-    var predictedBrush: Brush
-    
+    var brushes: Brushes
+
     //test stuff
     var maxTouch: Int = 100
     var replayBrushBuffer: [BrushSample] = []
@@ -31,22 +29,14 @@ class InputManager {
     var firstTouch: UITouch? = nil
     
 
-    init(w: Int, h: Int, u: UIManager, v: MTKView) {
+    init(w: Int, h: Int, u: UIManager, v: MTKView, b: Brushes) {
         txwidth = w
         txheight = h
         uim = u
         view = v
         
-        defaultBrush = Brush(n: "defaultBrush", w: txwidth, h: txheight)
-        defaultBrush.size = 32
-        defaultBrush.color = Color(255, 255, 255, 30)
-        updatedBrush = Brush(n: "updatedBrush", w: txwidth, h: txheight)
-        updatedBrush.size = 16
-        updatedBrush.color = Color(0, 255, 0,255)
-        predictedBrush = Brush(n: "predictedBrush", w: txwidth, h: txheight)
-        predictedBrush.size = 40
-        predictedBrush.color = Color(0, 0, 255,255)
-        
+        brushes = b
+
         replayBrushBuffer.reserveCapacity(maxTouch)
     }
     
@@ -80,12 +70,12 @@ class InputManager {
                 continue
             }
             let pos = processTouchPosition(touch: touch, view: view)
-            let first = updatedBrush.firstUpdateIndex == Int(truncating: index)
-            updatedBrush.append(pos: pos, force: Float(touch.force), first: first)
+            let first = brushes.updatedBrush.firstUpdateIndex == Int(truncating: index)
+            brushes.updatedBrush.append(pos: pos, force: Float(touch.force), first: first)
             if first {
                 //print("first update: \(pos)")
             }
-            let count = updatedBrush.sampleBuffer.count
+            let count = brushes.updatedBrush.sampleBuffer.count
             if count > 0 {
                 //print ("inputManager: brush samples: \(count)")
             }
@@ -120,7 +110,7 @@ class InputManager {
                 print("release button")
                 uim.releaseButton()
                 //TODO need to initialize uim new brush size? or only do this if brush resize was pressed??
-                updatedBrush.size = uim.newBrushSize
+                brushes.updatedBrush.size = uim.newBrushSize
             }
         }
         
@@ -135,7 +125,7 @@ class InputManager {
             
             if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
                 if let estimationUpdateIndex = firstTouch?.estimationUpdateIndex {
-                    updatedBrush.firstUpdateIndex = Int(truncating: estimationUpdateIndex)
+                    brushes.updatedBrush.firstUpdateIndex = Int(truncating: estimationUpdateIndex)
                 }
             }
             
@@ -150,7 +140,7 @@ class InputManager {
             for predictedTouch in predictedTouches
             {
                 //let pos = processTouchPosition(touch: predictedTouch, view: view)
-                //predictedBrush.append(pos: pos, force: Float(predictedTouch.force), first: firstOnce)
+                //brushes.predictedBrush.append(pos: pos, force: Float(predictedTouch.force), first: firstOnce)
             }
         }
 */
@@ -164,15 +154,15 @@ class InputManager {
                 //continue
             }
             let pos = processTouchPosition(touch: touch, view: view)
-            defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
+            brushes.defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
             if touch.type == .pencil {
                 uim.currentPencilLoc = pos
             }
             
-            updatedBrush.color = uim.processTouch(pos: pos)
+            brushes.updatedBrush.color = uim.processTouch(pos: pos)
             
             if enableReplay == true {
-                guard let brush = defaultBrush.sampleBuffer.last else { return }
+                guard let brush = brushes.defaultBrush.sampleBuffer.last else { return }
                 if replayBrushBuffer.count < maxTouch {
                     replayBrushBuffer.append(brush)
                     print ("replaybuff: \(replayBrushBuffer.count)")

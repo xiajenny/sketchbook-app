@@ -13,7 +13,6 @@ class UIManager {
     var txwidth: Int = 0
     var txheight: Int = 0
     
-    let defaultButtonColor = Color(80,80,180, 255)
     let buttonActivatedColor = Color(40,40,100, 255)
     var buttonColor: Color
     
@@ -22,23 +21,16 @@ class UIManager {
     var colorPickMode = false
     var colorPickHueMode = false
     
+    var brush: Brush
 
-    var colorPickerDim = 500
     var firstPencilLoc = Vec2()
     var currentPencilLoc = Vec2()
     var newBrushSize: Float = 16
-    var brushSize: Float = 256
     var buttonLoc = Vec2(0, -800)
     
-    let resizeButtonLocation = Vec2(-200.0, -2000)
-    var colorPickerLocation = Vec2(800, -2000)
-    let colorPickerHueOffsetLocation = Vec2(900, 0)
-    
+
     var activeColorSlot : ColorSlot
     
-    let widthHue = 360
-    let heightHue = 2
-    var brushColor: Color
     var hsv = FloatHSV (200, 1, 1, 1)
     //rendering glue
 
@@ -48,33 +40,42 @@ class UIManager {
     var renderer: Renderer!
     var initialized: Bool = false
     
-    init(w: Int, h: Int, r: Renderer) {
+    let resizeButtonLocation = Vec2(-200.0, -2000)
+    
+    init(w: Int, h: Int, r: Renderer, b: Brushes) {
         txwidth = w
         txheight = h
         renderer = r
         initialized = true
         
-        buttonColor = defaultButtonColor
-        //let hsv = itof(i: IntHSV(h: hue, s: 50, v: 50, a: 255))
-        brushColor = hsv2rgb(input: hsv)
+
+        brush = b.updatedBrush
+        brush.color = hsv2rgb(input: hsv)
+        buttonColor = brush.color
 
         //create graphical elements and their backing texture
         let td = MTLTextureDescriptor()
         td.usage = [.shaderRead, .shaderWrite]
         
         //circle brush
-        var size = Vec2(brushSize)
+        var size = Vec2(brush.size)
         //var ti = renderer.createTexture(td, size: size)
         var ti = 0
         var pos = Vec2()
         //var color = Color(40, 40, 200,255)
-        var color = brushColor
+        var color = brush.color
         //let circleBrush = CircleBrush(p: pos, s: size, c: color, ti: ti)
         //circleBrush.fill(&r.stampTextures.t[ti]!)
 
         //color slots; currently using same texture as brush, can override color while retaining alpha of texture
         //TODO need to make an offset system based on relative desired offset from some UI element
         //*
+        let colorPickerDim = 500
+        let colorPickerLocation = Vec2(800, -2000)
+        let colorPickerHueOffsetLocation = Vec2(900, 0)
+        let widthHue = 360
+        let heightHue = 2
+        
         size = Vec2(110)
         pos = colorPickerLocation + Vec2(-700, -400)
         color = Color(200, 200, 200, 255)
@@ -109,7 +110,7 @@ class UIManager {
         txSize = Vec2(Float(widthHue), Float(heightHue))
         ti = renderer.createTexture(td, size: txSize)
         pos = colorPickerLocation + colorPickerHueOffsetLocation
-        uiArray.append(ColorPickerHue(p: pos, s: txSize, ts: txSize, ti: ti))
+        uiArray.append(ColorPickerHue(p: pos, s: size, ts: txSize, ti: ti))
         uiMap["colorPickerHue"] = uiArray.last
         uiArray.last!.name = "colorPickerHue"
 
@@ -144,13 +145,13 @@ class UIManager {
     }
     
     func releaseButton() {
-        buttonColor = defaultButtonColor
+        buttonColor = brush.color
         buttonPressed = false
         dontDraw = false
     }
     
     func confirmBrushSize() {
-        brushSize = newBrushSize
+        brush.size = newBrushSize
     }
     
     func convert(sample: BrushSample, txIndex: uint = 0) -> BrushUniform {
@@ -184,7 +185,7 @@ class UIManager {
         //print("dist \(dist)")
         newBrushSize = brushSize + dist / 2
         
-        let element = BrushSample(position: buttonLoc, size: newBrushSize, color: defaultButtonColor)
+        let element = BrushSample(position: buttonLoc, size: newBrushSize, color: brush.color)
         return element
     }
     
@@ -194,23 +195,11 @@ class UIManager {
     //this locks the ui selection until the next touchBegan
     func firstTouch(pos: Vec2, pencil: Bool) {
         //get box of color picker
-        var offset = Float(colorPickerDim)
-        var left = colorPickerLocation.x - offset
-        var right = colorPickerLocation.x + offset
-        var top = colorPickerLocation.y + offset
-        var bottom = colorPickerLocation.y - offset
-        
-        colorPickMode = left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
         colorPickMode = uiMap["colorPicker"]!.isOver(pos)
-        
-        offset = Float(widthHue)
-        let hueLoc = colorPickerLocation + colorPickerHueOffsetLocation
-        left = hueLoc.x - offset
-        right = hueLoc.x + offset
-        top = hueLoc.y + offset
-        bottom = hueLoc.y - offset
-        colorPickHueMode = left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
-        //colorPickHueMode = uiMap["colorPickerHue"]!.isOver(pos)
+        colorPickHueMode = uiMap["colorPickerHue"]!.isOver(pos, debug: true)
+        if colorPickMode || colorPickHueMode {
+            print ("colorPickMode \(colorPickMode) colorPickHueMode \(colorPickHueMode)")
+        }
         
         for ge in uiArray {
             if let colorSlot = ge as? ColorSlot {
@@ -223,7 +212,7 @@ class UIManager {
                     if pencil {
                         uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
                         activeColorSlot = colorSlot
-                        brushColor = colorSlot.color
+                        brush.color = colorSlot.color
                         hsv = colorSlot.hsvColor
                     } else {
                         //take colorSlot, multiply by .1, add current color *.9
@@ -231,8 +220,8 @@ class UIManager {
                         print ("\(ge.name) curr: \(activeColorSlot.hsvColor.h) target: \(colorSlot.hsvColor.h) out: \(newColor.h)")
                         activeColorSlot.hsvColor = newColor
                         hsv = activeColorSlot.hsvColor
-                        brushColor = hsv2rgb(input: activeColorSlot.hsvColor)
-                        activeColorSlot.color = brushColor
+                        brush.color = hsv2rgb(input: activeColorSlot.hsvColor)
+                        activeColorSlot.color = brush.color
                     }
                     let cp = uiMap["colorPicker"] as! ColorPicker
                     cp.hue = Int(hsv.h)
@@ -275,37 +264,27 @@ class UIManager {
     //this activates the selected UI, change its appearance, and perform its functions
     func processTouch(pos: Vec2) -> Color{
         if colorPickMode {
-            let dim = Float(colorPickerDim)
-            var origin = colorPickerLocation
-            origin.x += dim
-            origin.y += dim
-            let sv = (origin - pos)/2
-            hsv.s = min(1, max(0.0, (dim - sv.y) / dim))
-            hsv.v = min(1, max(0, (dim - sv.x) / dim))
-            print("sv: \(sv) hsv: \(hsv)")
+            let temp = (uiMap["colorPicker"] as! ColorPicker).touch(pos)
+            hsv.s = temp.s
+            hsv.v = temp.v
         }
         
         if colorPickHueMode {
-            let dim = Float(widthHue)
-            var origin = colorPickerLocation
-            origin.x += dim
-            let sv = (pos - origin) / 2
-            hsv.h = min(360, max(0.0, sv.x * 255 / dim))
+            hsv.h = (uiMap["colorPickerHue"] as! ColorPickerHue).touch(pos)
             let cp = uiMap["colorPicker"] as! ColorPicker
             cp.hue = Int(hsv.h)
             cp.toUpdate = true
-            print("colorpick hue pos: \(pos.x) origin: \(origin.x) sv: \(sv) hsv: \(hsv)")
+            print("colorpick hsv: \(hsv)")
         }
         
         if colorPickHueMode || colorPickMode {
-            brushColor = hsv2rgb(input: hsv)
-            print("\(brushColor)")
-            setSelectedColor(brushColor)
-            activeColorSlot.color = brushColor
+            brush.color = hsv2rgb(input: hsv)
+            print("\(brush.color)")
+            setSelectedColor(brush.color)
+            activeColorSlot.color = brush.color
             activeColorSlot.hsvColor = hsv
-            print("processTouch: \(hsv.s)")
         }
         
-        return brushColor
+        return brush.color
     }
 }

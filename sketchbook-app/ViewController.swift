@@ -3,12 +3,34 @@ import UIKit
 import MetalKit
 import ModelIO
 
+class Brushes {
+    
+    var defaultBrush: Brush
+    var updatedBrush: Brush
+    var predictedBrush: Brush
+    
+    init(w: Int, h: Int) {
+        let txwidth = w
+        let txheight = h
+        defaultBrush = Brush(n: "defaultBrush", w: txwidth, h: txheight)
+        defaultBrush.size = 32
+        defaultBrush.color = Color(255, 255, 255, 30)
+        updatedBrush = Brush(n: "updatedBrush", w: txwidth, h: txheight)
+        updatedBrush.size = 16
+        updatedBrush.color = Color(0, 255, 0,255)
+        predictedBrush = Brush(n: "predictedBrush", w: txwidth, h: txheight)
+        predictedBrush.size = 40
+        predictedBrush.color = Color(0, 0, 255,255)
+    }
+}
+
 class ViewController: UIViewController {
     var mtkView: MTKView!
     var renderer: Renderer!
     var inputManager: InputManager!
     var uiManager: UIManager!
-    
+    var brushes: Brushes!
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -26,10 +48,10 @@ class ViewController: UIViewController {
         mtkView.colorPixelFormat = .bgra8Unorm_srgb
         mtkView.depthStencilPixelFormat = .depth32Float
         
-        //from modern-metal renderer = Renderer(view: mtkView, device: device)
         renderer = Renderer(d: device, with: mtkView)
-        uiManager = UIManager(w: renderer.txwidth, h: renderer.txheight, r: renderer)
-        inputManager = InputManager(w: renderer.txwidth, h: renderer.txheight, u: uiManager, v: mtkView)
+        brushes = Brushes(w: renderer.txwidth, h: renderer.txheight)
+        uiManager = UIManager(w: renderer.txwidth, h: renderer.txheight, r: renderer, b: brushes)
+        inputManager = InputManager(w: renderer.txwidth, h: renderer.txheight, u: uiManager, v: mtkView, b: brushes)
         renderer.init2(u: uiManager, i: inputManager)
         
         mtkView.delegate = renderer
@@ -57,7 +79,7 @@ class ViewController: UIViewController {
         let touch = touches.first
         //let t = touch!.preciseLocation(in: view)
         //print("\(touchCount) touches ended \(t.x) \(t.y)")
-        inputManager.defaultBrush.touchEnded = true
+        brushes.defaultBrush.touchEnded = true
         //view paused in renderer.drawFrame
         //mtkView.isPaused = true;
     }

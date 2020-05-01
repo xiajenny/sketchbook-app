@@ -24,13 +24,17 @@ class GraphicalElement {
         fatalError("must override fill")
     }
     
-    func isOver(_ pos: Vec2) -> Bool {
+    func isOver(_ pos: Vec2, debug: Bool = false) -> Bool {
         //TODO assume rectangular hit target, but should do circles or others depending on the class
         let left = position.x - size.x
         let right = position.x + size.x
         let top = position.y + size.y
         let bottom = position.y - size.y
         
+        if debug {
+            let hit = hitable && left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
+            print("hitable: \(hitable) hit: \(hit) pos: \(pos) lrtb: \(left) \(right) \(top) \(bottom)")
+        }
         return hitable && left < pos.x && pos.x < right && top > pos.y && pos.y > bottom
     }
     
@@ -99,6 +103,19 @@ class ColorPicker : GraphicalElement {
         let region = MTLRegionMake2D(0, 0, dim, dim)
         tex.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: dim*bytesPerPixel)
     }
+    
+    func touch(_ touchPos: Vec2) -> FloatHSV {
+        var hsv = FloatHSV()
+        let dim = size.x
+        var origin = position
+        origin.x += dim
+        origin.y += dim
+        let sv = (origin - touchPos)/2
+        hsv.s = min(1, max(0.0, (dim - sv.y) / dim))
+        hsv.v = min(1, max(0, (dim - sv.x) / dim))
+        print("sv: \(sv) hsv: \(hsv)")
+        return hsv
+    }
 }
 
 class ColorPickerHue : GraphicalElement {
@@ -128,6 +145,14 @@ class ColorPickerHue : GraphicalElement {
         }
         let region = MTLRegionMake2D(0, 0, width, height)
         texture.replace(region: region, mipmapLevel: 0, withBytes: cpData, bytesPerRow: width*bytesPerPixel)
+    }
+    
+    func touch(_ touchPos: Vec2) -> Float {
+        let dim = Float(size.x)
+        var origin = position
+        origin.x -= dim
+        let sv = (touchPos - origin) / 2
+        return min(360, max(0.0, sv.x ))
     }
 }
 

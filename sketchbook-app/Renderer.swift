@@ -110,7 +110,7 @@ class Renderer: NSObject {
     func init2(u: UIManager, i: InputManager) {
         uiManager = u
         inputManager = i
-        standardBrush = inputManager?.updatedBrush
+        standardBrush = inputManager?.brushes.updatedBrush
         
         createCommandQueue(device: device)
         createPipelineState(device: device)
@@ -402,7 +402,7 @@ class Renderer: NSObject {
     }
         
     func drawCanvasInstanced(in view: MTKView) {
-        prepareStroke(in: view, brush: &(inputManager!.updatedBrush))
+        prepareStroke(in: view, brush: &(inputManager!.brushes.updatedBrush))
         //NOTE when enabling defaultBrush, brush resize icon will randomly be rendered to canvas
         //prepareStroke(in: view, brush: &(inputManager!.defaultBrush))
         //prepareStroke(in: view, brush: &(inputManager!.predictedBrush))

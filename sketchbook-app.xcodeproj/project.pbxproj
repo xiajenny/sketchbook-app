@@ -323,7 +323,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app1";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app2";
 				PRODUCT_NAME = "sketchbook-app";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -342,7 +342,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app1";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xiajenny.sketchbook-app2";
 				PRODUCT_NAME = "sketchbook-app";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
