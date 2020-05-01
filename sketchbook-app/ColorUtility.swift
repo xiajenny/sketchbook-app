@@ -8,6 +8,10 @@
 
 import Foundation
 
+
+func lerp(_ a: Float, _ b: Float, _ f: Float) -> Float {
+    return a * f + b * (1 - f)
+}
 struct Color {
     var r : UInt8 = 0
     var g : UInt8 = 0
@@ -52,6 +56,28 @@ struct FloatHSV {
         v = 0
         a = 0
     }
+}
+
+
+func lerp(_ a: FloatHSV, _ b: FloatHSV, _ f: Float) -> FloatHSV {
+    var ret = FloatHSV()
+    //find shortest direction to lerp
+    let normalLerp = abs(a.h - b.h) < 180
+    if normalLerp {
+        ret.h = lerp(a.h, b.h, f)
+    } else {
+        if a.h > b.h {
+            ret.h = lerp(a.h, b.h+360, f)
+        } else {
+            ret.h = lerp(a.h+360, b.h, f)
+        }
+        if ret.h > 360 {
+            ret.h -= 360
+        }
+    }
+    ret.s = lerp(a.s, b.s, f)
+    ret.v = lerp(a.v, b.v, f)
+    return ret
 }
 
 struct IntHSV {

@@ -11,7 +11,6 @@ import MetalKit
 
 class GraphicalElement {
     var name = "graphical element"
-    var tag = "default"
     var hitable = true
     var toUpdate = true
     var txIndex: Int
@@ -21,7 +20,7 @@ class GraphicalElement {
     var color: Color
 
     func fill(_ tex: inout MTLTexture) {
-        fatalError("must override fill")
+        return
     }
     
     func isOver(_ pos: Vec2, debug: Bool = false) -> Bool {
@@ -68,9 +67,6 @@ class ColorSlot : GraphicalElement {
     //init(p: Vec2, s: Vec2, c: Color, ti: Int) {
     //    super.init(p: p, s: s, c: c, ti: ti)
     //}
-    override func fill(_ tex: inout MTLTexture) {
-        return
-    }
 }
 
 class ColorPicker : GraphicalElement {
@@ -187,5 +183,34 @@ class CircleBrush : GraphicalElement {
         let region = MTLRegionMake2D(0, 0, kw, kw)
         texture.replace(region: region, mipmapLevel: 0, withBytes: brushData, bytesPerRow: kw * bytesPerPixel)
         brushData.deallocate()
+    }
+}
+
+class Button : GraphicalElement {
+    var firstLocation = Vec2()
+    var currentLocation = Vec2()
+    var newBrushSize : FloatBox
+
+    init(p: Vec2, s: Vec2, b: FloatBox, ti: Int) {
+        newBrushSize = b
+        super.init(p: p, s: s, ts: s, ti: ti)
+    }
+    func foo(_ brushSize: Float) {
+        let distFirst = v_len(a: firstLocation - position)
+        let distCurr = v_len(a: position - currentLocation)
+        let dist = distCurr - distFirst
+        newBrushSize.value = brushSize + dist / 2
+    }
+}
+
+class BrushIndicator : GraphicalElement {
+    var newBrushSize : FloatBox
+    init(p: Vec2, b: FloatBox, ti: Int) {
+        newBrushSize = b
+        super.init(p: p, s: Vec2(b.value), ti: ti)
+    }
+    
+    override func getElement() -> BrushSample {
+        return BrushSample(position: position, size: newBrushSize.value, color: color)
     }
 }

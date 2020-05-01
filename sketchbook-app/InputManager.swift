@@ -98,19 +98,9 @@ class InputManager {
         
         //button hit eval
         if let touch = touches.first, touch.type == .direct {
-            
-            let target = uim.resizeButtonLocation
-            let pos = processTouchPosition(touch: touch, view: view)
-            let hit = v_len(a: target - pos) < 140.0
-            //print("dist: \(v_len(a: target - pos))")
-            if hit && first {
-                uim.pressButton()
-            }
             if last {
                 print("release button")
                 uim.releaseButton()
-                //TODO need to initialize uim new brush size? or only do this if brush resize was pressed??
-                brushes.updatedBrush.size = uim.newBrushSize
             }
         }
         
@@ -119,10 +109,7 @@ class InputManager {
         if first {
             firstTouch = touches.first!
             let pos = processTouchPosition(touch: firstTouch!, view: view)
-            if firstTouch!.type == .pencil {
-                uim.firstPencilLoc = pos
-            }
-            
+
             if firstTouch!.estimatedPropertiesExpectingUpdates != [] {
                 if let estimationUpdateIndex = firstTouch?.estimationUpdateIndex {
                     brushes.updatedBrush.firstUpdateIndex = Int(truncating: estimationUpdateIndex)
@@ -155,11 +142,8 @@ class InputManager {
             }
             let pos = processTouchPosition(touch: touch, view: view)
             brushes.defaultBrush.append(pos: pos, force: Float(touch.force), first: firstOnce); firstOnce = false
-            if touch.type == .pencil {
-                uim.currentPencilLoc = pos
-            }
-            
-            brushes.updatedBrush.color = uim.processTouch(pos: pos)
+
+            brushes.updatedBrush.color = uim.processTouch(pos: pos, pencil: touch.type == .pencil)
             
             if enableReplay == true {
                 guard let brush = brushes.defaultBrush.sampleBuffer.last else { return }

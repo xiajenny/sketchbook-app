@@ -9,39 +9,42 @@
 import Foundation
 import MetalKit
 
+class FloatBox {
+    var value: Float
+    init(_ v: Float) {
+        value = v
+    }
+}
+
+class HSVBox {
+    var value: FloatHSV
+    init(_ v: FloatHSV) {
+        value = v
+    }
+}
+
 class UIManager {
     var txwidth: Int = 0
     var txheight: Int = 0
-    
-    let buttonActivatedColor = Color(40,40,100, 255)
-    var buttonColor: Color
-    
+
     var dontDraw = true
     var buttonPressed = false
     var colorPickMode = false
     var colorPickHueMode = false
     
     var brush: Brush
-
-    var firstPencilLoc = Vec2()
-    var currentPencilLoc = Vec2()
-    var newBrushSize: Float = 16
-    var buttonLoc = Vec2(0, -800)
-    
-
     var activeColorSlot : ColorSlot
-    
+    var newBrushSize = FloatBox(16)
+    var button : Button
+
     var hsv = FloatHSV (200, 1, 1, 1)
-    //rendering glue
 
     var uiMap : [String: GraphicalElement] = [:]
     var uiArray : [GraphicalElement] = []
 
     var renderer: Renderer!
     var initialized: Bool = false
-    
-    let resizeButtonLocation = Vec2(-200.0, -2000)
-    
+
     init(w: Int, h: Int, r: Renderer, b: Brushes) {
         txwidth = w
         txheight = h
@@ -51,7 +54,6 @@ class UIManager {
 
         brush = b.updatedBrush
         brush.color = hsv2rgb(input: hsv)
-        buttonColor = brush.color
 
         //create graphical elements and their backing texture
         let td = MTLTextureDescriptor()
@@ -61,6 +63,7 @@ class UIManager {
         var size = Vec2(brush.size)
         //var ti = renderer.createTexture(td, size: size)
         var ti = 0
+        let brushTexIndex = ti
         var pos = Vec2()
         //var color = Color(40, 40, 200,255)
         var color = brush.color
@@ -75,6 +78,8 @@ class UIManager {
         let colorPickerHueOffsetLocation = Vec2(900, 0)
         let widthHue = 360
         let heightHue = 2
+        let resizeBrushLocation = Vec2(0, -800)
+        let resizeButtonLocation = Vec2(-200.0, -2000)
         
         size = Vec2(110)
         pos = colorPickerLocation + Vec2(-700, -400)
@@ -89,7 +94,6 @@ class UIManager {
             uiArray.append(ColorSlot(p: pos, s: size, c: color, ti: ti))
             let name = "ColorSlot\(i)"
             uiArray.last!.name = name
-            uiArray.last!.tag = "ColorSlot"
             uiMap[name] = uiArray.last
             pos = pos + Vec2(0, 260)
         }
@@ -114,6 +118,19 @@ class UIManager {
         uiMap["colorPickerHue"] = uiArray.last
         uiArray.last!.name = "colorPickerHue"
 
+        //resize brush button
+        size = Vec2(128)
+        uiArray.append(Button(p: resizeButtonLocation, s: size, b: newBrushSize, ti: brushTexIndex))
+        uiMap["brushResizeButton"] = uiArray.last
+        uiArray.last!.name = "brushResizeButton"
+        button = uiArray.last as! Button
+        
+        //resize brush indicator
+        uiArray.append(BrushIndicator(p: resizeBrushLocation, b: newBrushSize, ti: brushTexIndex))
+        uiMap["brushResizeIndicator"] = uiArray.last
+        uiArray.last!.name = "brushResizeIndicator"
+        uiArray.last!.hitable = false
+        
         //new layer
         
         //create gradient maps
@@ -128,7 +145,14 @@ class UIManager {
     func getElements(_ textureBox : TextureBox, _ buffer : inout [BrushUniform]) {
         for ge in uiArray {
             ge.fill(&textureBox.t[Int(ge.txIndex)]!)
-            let element = ge.getElement()
+            var element = ge.getElement()
+            if let bi = ge as? BrushIndicator {
+                if buttonPressed {
+                    element = bi.getElement()
+                } else {
+                    continue
+                }
+            }
             buffer.append(convert(sample: element, txIndex: uint(ge.txIndex)))
         }
     }
@@ -138,20 +162,13 @@ class UIManager {
     }
     func pressButton() {
         print("resize button pressed!")
-        buttonColor = buttonActivatedColor
         buttonPressed = true
-        firstPencilLoc = Vec2()
-        currentPencilLoc = Vec2()
     }
     
     func releaseButton() {
-        buttonColor = brush.color
+        brush.size = newBrushSize.value
         buttonPressed = false
         dontDraw = false
-    }
-    
-    func confirmBrushSize() {
-        brush.size = newBrushSize
     }
     
     func convert(sample: BrushSample, txIndex: uint = 0) -> BrushUniform {
@@ -168,101 +185,59 @@ class UIManager {
         return strokeSample
     }
 
-    func createResizeBrushButton() -> BrushSample {
-        let element = BrushSample(position: resizeButtonLocation, size: 128.0, color: buttonColor)
-        return element
-    }
-    
-    func distTravelledFromButton() -> Float {
-        let distFirst = v_len(a: firstPencilLoc - buttonLoc)
-        let distCurr = v_len(a: buttonLoc - currentPencilLoc)
-        let dist = distCurr - distFirst
-        return dist
-    }
-    
-    func createResizeBrush(brushSize: Float) -> BrushSample {
-        let dist = distTravelledFromButton()
-        //print("dist \(dist)")
-        newBrushSize = brushSize + dist / 2
-        
-        let element = BrushSample(position: buttonLoc, size: newBrushSize, color: brush.color)
-        return element
-    }
-    
     //MARK: - UI logic
     
     //checks if a touch hits a UI target
     //this locks the ui selection until the next touchBegan
     func firstTouch(pos: Vec2, pencil: Bool) {
         //get box of color picker
+        if pencil {
+            button.firstLocation = pos
+        }
         colorPickMode = uiMap["colorPicker"]!.isOver(pos)
         colorPickHueMode = uiMap["colorPickerHue"]!.isOver(pos, debug: true)
         if colorPickMode || colorPickHueMode {
             print ("colorPickMode \(colorPickMode) colorPickHueMode \(colorPickHueMode)")
         }
         
+        if button.isOver(pos) {
+            pressButton()
+        }
+        
         for ge in uiArray {
-            if let colorSlot = ge as? ColorSlot {
-                let hit = colorSlot.isOver(pos)
-                if hit {
-                    print("\(ge.name) hit")
-                    dontDraw = true
-                    //print("uimap size: \(uiMap.count) acsi: \(uiMap["activeColorSlotIndicator"]!.position)")
-                    //TODO indicator behavior is wrong
-                    if pencil {
-                        uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
-                        activeColorSlot = colorSlot
-                        brush.color = colorSlot.color
-                        hsv = colorSlot.hsvColor
-                    } else {
-                        //take colorSlot, multiply by .1, add current color *.9
-                        let newColor = lerp(activeColorSlot.hsvColor, colorSlot.hsvColor, 0.9)
-                        print ("\(ge.name) curr: \(activeColorSlot.hsvColor.h) target: \(colorSlot.hsvColor.h) out: \(newColor.h)")
-                        activeColorSlot.hsvColor = newColor
-                        hsv = activeColorSlot.hsvColor
-                        brush.color = hsv2rgb(input: activeColorSlot.hsvColor)
-                        activeColorSlot.color = brush.color
-                    }
-                    let cp = uiMap["colorPicker"] as! ColorPicker
-                    cp.hue = Int(hsv.h)
-                    cp.toUpdate = true
-                    break
+            if let colorSlot = ge as? ColorSlot, colorSlot.isOver(pos) {
+                print("\(ge.name) hit")
+                dontDraw = true
+                //print("uimap size: \(uiMap.count) acsi: \(uiMap["activeColorSlotIndicator"]!.position)")
+                //TODO indicator behavior is wrong
+                if pencil {
+                    uiMap["activeColorSlotIndicator"]!.position = colorSlot.position
+                    activeColorSlot = colorSlot
+                    brush.color = colorSlot.color
+                    hsv = colorSlot.hsvColor
+                } else {
+                    //take colorSlot, multiply by .1, add current color *.9
+                    let newColor = lerp(activeColorSlot.hsvColor, colorSlot.hsvColor, 0.9)
+                    print ("\(ge.name) curr: \(activeColorSlot.hsvColor.h) target: \(colorSlot.hsvColor.h) out: \(newColor.h)")
+                    activeColorSlot.hsvColor = newColor
+                    hsv = activeColorSlot.hsvColor
+                    brush.color = hsv2rgb(input: activeColorSlot.hsvColor)
+                    activeColorSlot.color = brush.color
                 }
+                let cp = uiMap["colorPicker"] as! ColorPicker
+                cp.hue = Int(hsv.h)
+                cp.toUpdate = true
+                break
             }
         }
     }
-    
-    func lerp(_ a: FloatHSV, _ b: FloatHSV, _ f: Float) -> FloatHSV {
-        var ret = FloatHSV()
-        //find shortest direction to lerp
-        let normalLerp = abs(a.h - b.h) < 180
-        if normalLerp {
-            ret.h = lerp(a.h, b.h, f)
-        } else {
-            if a.h > b.h {
-                ret.h = lerp(a.h, b.h+360, f)
-            } else {
-                ret.h = lerp(a.h+360, b.h, f)
-            }
-            if ret.h > 360 {
-                ret.h -= 360
-            }
-        }
-        ret.s = lerp(a.s, b.s, f)
-        ret.v = lerp(a.v, b.v, f)
-        return ret
-    }
-    func lerp(_ a: Float, _ b: Float, _ f: Float) -> Float {
-        return a * f + b * (1 - f)
-    }
-    
 
     func cantDraw() -> Bool {
         return buttonPressed || colorPickMode || colorPickHueMode
     }
     
     //this activates the selected UI, change its appearance, and perform its functions
-    func processTouch(pos: Vec2) -> Color{
+    func processTouch(pos: Vec2, pencil: Bool) -> Color{
         if colorPickMode {
             let temp = (uiMap["colorPicker"] as! ColorPicker).touch(pos)
             hsv.s = temp.s
@@ -275,6 +250,14 @@ class UIManager {
             cp.hue = Int(hsv.h)
             cp.toUpdate = true
             print("colorpick hsv: \(hsv)")
+        }
+        
+        if buttonPressed {
+            if pencil {
+                button.currentLocation = pos
+            }
+            button.foo(brush.size)
+            print(newBrushSize.value)
         }
         
         if colorPickHueMode || colorPickMode {

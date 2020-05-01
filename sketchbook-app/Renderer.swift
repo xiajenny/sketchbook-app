@@ -382,6 +382,7 @@ class Renderer: NSObject {
             
             uiManager!.getElements(stampTextures, &uniformStagingBufferUI)
 
+            /*
             //button for resizing brush
             var element = uiManager!.createResizeBrushButton()
             element.color = standardBrush!.color
@@ -392,6 +393,7 @@ class Renderer: NSObject {
                 element.color = standardBrush!.color
                 uniformStagingBufferUI.append(convert(sample: element))
             }
+ */
 
             //draw UI
             //note: UI texture implicitly cleared by rdpUI
